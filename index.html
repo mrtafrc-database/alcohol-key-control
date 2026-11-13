@@ -747,10 +747,6 @@
           <div class="toolbar">
             <button id="newRecord" class="btn fixed"
               style="min-width:110px">+ New</button>
-            <button id="exportExcelBtn" class="btn secondary fixed"
-              title="ส่งออกข้อมูลหน้าปัจจุบันตามตัวกรอง">
-              Export Excel
-            </button>
             <input id="mainSearch"
               placeholder="ค้นหาพนักงาน แผนก ทะเบียนรถ หรือหมายเหตุ"
               value="${esc(mainFilter.search)}">
@@ -767,6 +763,10 @@
               <option value="Legacy">ข้อมูลเดิม</option>
             </select>
             <button id="mainFind" class="btn secondary fixed">ค้นหา</button>
+            <button id="exportExcelBtn" class="btn secondary fixed"
+              title="ส่งออกข้อมูลหน้าปัจจุบันตามตัวกรอง">
+              Export Excel
+            </button>
           </div>
           <div class="callout">
             ตรวจทีละครั้ง พร้อมวันเวลาและชื่อผู้ตรวจ
