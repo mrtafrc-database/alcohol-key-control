@@ -625,6 +625,33 @@
         </div>
       `;
     }
+    function canHandoverRecord(record) {
+  if (
+    !record ||
+    record.TestStatus !== "Passed" ||
+    record.KeyStatus !== "NotIssued"
+  ) {
+    return false;
+  }
+  let planned;
+  try {
+    planned = JSON.parse(record.PlannedVehicleIDs || "[]");
+  } catch {
+    return false;
+  }
+  if (!Array.isArray(planned) || !planned.length) return false;
+  const latest = (record.Attempts || []).find(
+    attempt => Number(attempt.AttemptNo) === Number(record.AttemptCount)
+  );
+  return Boolean(
+    latest &&
+    latest.Decision === "Passed" &&
+    latest.Result !== null &&
+    latest.Result !== undefined &&
+    String(latest.Result).trim() !== "" &&
+    Number(latest.Result) === 0
+  );
+}
     async function renderMain() {
       const view = await call("mainView", { ...mainFilter });
       state.data = view.bootstrap;
@@ -650,7 +677,7 @@
                 esc(record.DetailID)
               }">รับคืน</button>`
             : "",
-          record.TestStatus === "Passed"
+          canHandoverRecord(record)
             ? `<button class="btn secondary tiny" data-handover="${
                 esc(record.RecordID)
               }">มอบกุญแจ</button>`
@@ -1064,6 +1091,28 @@
       `);
       const getEmployee = record ? null : bindQR("new", "inspectionForm");
       const getVehicleIds = bindVehicleSelects(planned);
+      const resultInput = $("attemptResult");
+      const passButton = $("passAttempt");
+      const notPassButton = $("inspectionForm")
+        .querySelector('[data-decision="NotPassed"]');
+      function updateDecisionButtons() {
+        const raw = resultInput.value.trim();
+        const value = Number(raw);
+        const valid =
+          raw !== "" &&
+          Number.isFinite(value) &&
+          value >= 0 &&
+          value <= 100000;
+        passButton.disabled = !valid || value !== 0;
+        notPassButton.disabled = !valid;
+        passButton.title =
+          valid && value > 0
+            ? "ผลตรวจมากกว่า 0 mg/L ต้องเลือกไม่ผ่าน"
+            : "เลือกผ่านได้เฉพาะผลตรวจ 0 mg/L";
+      }
+      resultInput.addEventListener("input", updateDecisionButtons);
+      resultInput.addEventListener("change", updateDecisionButtons);
+      updateDecisionButtons();
       $("cancelInspection").onclick = () => closeModal();
       let submitted = false;
       $("inspectionForm").onsubmit = async event => {
@@ -1078,6 +1127,19 @@
           }
           const result = $("attemptResult").value;
           if (!result.trim()) throw new Error("กรุณากรอกผลตรวจ");
+          const numericResult = Number(result);
+          if (
+            !Number.isFinite(numericResult) ||
+            numericResult < 0 ||
+            numericResult > 100000
+          ) {
+            throw new Error("ผลตรวจต้องเป็นตัวเลขตั้งแต่ 0 ถึง 100000 mg/L");
+          }
+          if (decision === "Passed" && numericResult !== 0) {
+            throw new Error(
+              "ผลตรวจมากกว่า 0 mg/L ต้องเลือกไม่ผ่าน"
+            );
+          }
           const ids = getVehicleIds();
           const payload = {
             requestId: rid,
@@ -1164,7 +1226,12 @@
       };
     }
     async function handoverModal(record) {
-      if (!record) return;
+      if (!canHandoverRecord(record)) {
+        return toast(
+          "รายการนี้ไม่มีรถรอมอบกุญแจ หรือผลตรวจไม่เข้าเงื่อนไข",
+          true
+        );
+      }
       try {
         // Refresh vehicle availability before showing this dialog.
         state.data = await call("bootstrap");
@@ -1213,6 +1280,13 @@
         try {
           const ids = getIds();
           if (!ids.length) throw new Error("กรุณาเลือกรถ");
+          const planned = JSON.parse(record.PlannedVehicleIDs || "[]");
+          if (
+            !Array.isArray(planned) ||
+            ids.some(id => !planned.includes(id))
+          ) {
+            throw new Error("กรุณาเลือกเฉพาะรถที่อยู่ในรายการเบิกนี้");
+          }
           submitted = true;
           const output = await call("handoverKey", {
             requestId: rid,
