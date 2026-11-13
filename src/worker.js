@@ -347,6 +347,7 @@ async function loadVehicles(db, activeOnly = true) {
        v.vehicle_id AS VehicleID,
        v.plate AS Plate,
        v.vehicle_name AS VehicleName,
+       v.owner_department AS OwnerDepartment,
        v.active AS Active,
        EXISTS (
          SELECT 1 FROM key_handovers h
@@ -867,6 +868,12 @@ async function saveVehicle(db, user, data) {
   const id = text(data.vehicleId, "Vehicle ID", 80);
   const plate = text(data.plate, "ทะเบียนรถ", 100);
   const name = text(data.vehicleName, "ชื่อรถ");
+  const ownerDepartment = text(
+    data.ownerDepartment,
+    "แผนกเจ้าของรถ",
+    80,
+    false
+  );
   const active = data.active === true ? 1 : 0;
   const at = timestamp();
   return commitMutation(
@@ -878,17 +885,19 @@ async function saveVehicle(db, user, data) {
       statement(
         db,
         `INSERT INTO vehicles
-         (vehicle_id, plate, vehicle_name, active,
+         (vehicle_id, plate, vehicle_name, owner_department, active,
           created_by, created_at, updated_at)
-         VALUES (?, ?, ?, ?, ?, ?, ?)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?)
          ON CONFLICT(vehicle_id) DO UPDATE SET
            plate = excluded.plate,
            vehicle_name = excluded.vehicle_name,
+           owner_department = excluded.owner_department,
            active = excluded.active,
            updated_at = excluded.updated_at`,
         id,
         plate,
         name,
+        ownerDepartment,
         active,
         user.user_id,
         at,
@@ -900,7 +909,12 @@ async function saveVehicle(db, user, data) {
         action,
         "vehicles",
         id,
-        { plate, vehicleName: name, active: Boolean(active) }
+        {
+          plate,
+          vehicleName: name,
+          ownerDepartment,
+          active: Boolean(active)
+        }
       )
     ],
     { message: "บันทึกข้อมูลรถแล้ว" }
