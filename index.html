@@ -383,8 +383,8 @@
           <button id="adminSettingsBtn" class="btn secondary tiny hidden">
             ตั้งค่า
           </button>
-          <button id="mainBackBtn" class="btn secondary tiny">ตารางหลัก</button>
           <div class="account" id="account"></div>
+          <button id="mainBackBtn" class="btn secondary tiny">ตารางหลัก</button>
           <button id="refreshBtn" class="btn secondary tiny">รีเฟรช</button>
           <button id="changeBtn" class="btn secondary tiny">รหัสผ่าน</button>
           <button id="logoutBtn" class="btn secondary tiny">ออก</button>
@@ -397,6 +397,7 @@
     role="dialog" aria-modal="true" aria-labelledby="modalTitle">
     <div class="modal" id="modalContent"></div>
   </div>
+  <script src="https://cdn.sheetjs.com/xlsx-0.20.3/package/dist/xlsx.full.min.js"></script>
   <script>
     "use strict";
     const API_BASE = "https://alcohol-key-control-api.mrtafrc.workers.dev";
@@ -746,6 +747,10 @@
           <div class="toolbar">
             <button id="newRecord" class="btn fixed"
               style="min-width:110px">+ New</button>
+            <button id="exportExcelBtn" class="btn secondary fixed"
+              title="ส่งออกข้อมูลหน้าปัจจุบันตามตัวกรอง">
+              Export Excel
+            </button>
             <input id="mainSearch"
               placeholder="ค้นหาพนักงาน แผนก ทะเบียนรถ หรือหมายเหตุ"
               value="${esc(mainFilter.search)}">
@@ -804,6 +809,7 @@
       $("mainStatus").value = mainFilter.status;
       styleStatusFilter();
       $("newRecord").onclick = () => inspectionModal();
+      $("exportExcelBtn").onclick = exportMainExcel;
       $("mainFind").onclick = async () => {
         mainFilter.search = $("mainSearch").value;
         mainFilter.status = $("mainStatus").value;
@@ -846,6 +852,128 @@
         );
       });
     }
+    function exportMainExcel() {
+  try {
+    const records = state.history?.rows || [];
+
+    if (!records.length) {
+      return toast("ไม่มีข้อมูลในตารางสำหรับ Export", true);
+    }
+
+    if (!window.XLSX) {
+      throw new Error(
+        "โหลดไลบรารี Excel ไม่สำเร็จ กรุณาตรวจอินเทอร์เน็ตแล้วรีเฟรชหน้าเว็บ"
+      );
+    }
+
+    function attemptText(record, number) {
+      const attempt = (record.Attempts || []).find(
+        item => Number(item.AttemptNo) === number
+      );
+
+      if (!attempt) {
+        return record.TestStatus === "Awaiting" + number
+          ? "ยังไม่ได้ตรวจ"
+          : "N/A";
+      }
+
+      const decision = attempt.Decision === "Passed"
+        ? "ผ่าน"
+        : attempt.Decision === "NotPassed"
+          ? "ไม่ผ่าน"
+          : "ไม่ระบุ";
+
+      return `${attempt.Result} mg/L · ${decision}\n${dt(attempt.TestedAt)}`;
+    }
+
+    const headers = [
+      "วันเวลา",
+      "GID",
+      "ชื่อพนักงาน",
+      "แผนก",
+      "ผลเป่าครั้งที่ 1",
+      "ผลเป่าครั้งที่ 2",
+      "ผลเป่าครั้งที่ 3",
+      "ทะเบียนรถ",
+      "มอบกุญแจ",
+      "ตรวจ/มอบกุญแจโดย",
+      "รับคืนกุญแจ",
+      "รับคืนโดย",
+      "สถานะการตรวจ",
+      "สถานะกุญแจ",
+      "หมายเหตุ"
+    ];
+
+    const rows = records.map(record => {
+      const firstAttempt = (record.Attempts || []).find(
+        item => Number(item.AttemptNo) === 1
+      );
+
+      return [
+        dt(record.TestedAt),
+        String(record.EmployeeID ?? ""),
+        String(record.EmployeeName ?? ""),
+        String(record.Department ?? ""),
+        attemptText(record, 1),
+        attemptText(record, 2),
+        attemptText(record, 3),
+        String(record.Plate || "—"),
+        dt(record.BorrowedAt),
+        actualName(firstAttempt?.InspectorName),
+        dt(record.ReturnedAt),
+        record.ReturnedAt
+          ? actualName(record.ReceivedByName)
+          : "—",
+        testLabels[record.TestStatus] || record.TestStatus || "—",
+        keyLabels[record.KeyStatus] || record.KeyStatus || "—",
+        String(record.Notes || "—")
+      ];
+    });
+
+    const worksheet = XLSX.utils.aoa_to_sheet([headers, ...rows]);
+
+    worksheet["!cols"] = [
+      { wch: 24 },
+      { wch: 16 },
+      { wch: 28 },
+      { wch: 16 },
+      { wch: 30 },
+      { wch: 30 },
+      { wch: 30 },
+      { wch: 18 },
+      { wch: 24 },
+      { wch: 28 },
+      { wch: 24 },
+      { wch: 24 },
+      { wch: 24 },
+      { wch: 20 },
+      { wch: 45 }
+    ];
+
+    worksheet["!autofilter"] = {
+      ref: worksheet["!ref"]
+    };
+
+    const workbook = XLSX.utils.book_new();
+    XLSX.utils.book_append_sheet(
+      workbook,
+      worksheet,
+      "Alcohol Key Control"
+    );
+
+    const stamp = dateInputSeconds().replace(/[-:]/g, "").replace("T", "_");
+    const page = state.history.page || 1;
+
+    XLSX.writeFile(
+      workbook,
+      `Alcohol_Key_Control_${stamp}_Page${page}.xlsx`
+    );
+
+    toast(`Export Excel ${records.length} รายการ จากหน้า ${page} แล้ว`);
+  } catch (error) {
+    fail(error);
+  }
+}
     function styleStatusFilter() {
       const select = $("mainStatus");
       if (!select) return;
