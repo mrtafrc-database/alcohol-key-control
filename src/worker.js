@@ -1,13 +1,15 @@
+const CORS_HEADERS = {
+  "Access-Control-Allow-Origin": "*",
+  "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
+  "Access-Control-Allow-Headers": "Content-Type",
+  "Cache-Control": "no-store",
+  "X-Content-Type-Options": "nosniff"
+};
+
 function json(body, status = 200) {
   return Response.json(body, {
     status,
-    headers: {
-      "Cache-Control": "no-store",
-      "X-Content-Type-Options": "nosniff",
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type"
-    }
+    headers: CORS_HEADERS
   });
 }
 
@@ -15,7 +17,7 @@ function now() {
   return new Date().toISOString();
 }
 
-function id() {
+function newId() {
   return crypto.randomUUID();
 }
 
@@ -27,120 +29,9 @@ async function readJson(request) {
   }
 }
 
-async function getUserByUsername(env, username) {
-  return await env.DB.prepare(`
-    SELECT user_id, username, display_name, role, active
-    FROM users
-    WHERE username = ? COLLATE NOCASE
-    LIMIT 1
-  `).bind(username).first();
-}
-
-async function handleSetup(request, env) {
-  if (request.method !== "POST") {
-    return json({
-      ok: false,
-      error: "ส่งข้อมูลด้วย POST เท่านั้น"
-    }, 405);
-  }
-
-  const count = await env.DB.prepare(
-    "SELECT COUNT(*) AS total FROM users"
-  ).first();
-
-  if (Number(count?.total || 0) > 0) {
-    return json({
-      ok: false,
-      error: "มีบัญชีอยู่แล้ว"
-    }, 409);
-  }
-
-  const body = await readJson(request);
-
-  if (!body || typeof body !== "object") {
-    return json({
-      ok: false,
-      error: "ข้อมูลไม่ถูกต้อง"
-    }, 400);
-  }
-
-  const accounts = [
-    {
-      username: "admin",
-      password: body.admin_password,
-      displayName: "Admin",
-      role: "Admin"
-    },
-    {
-      username: "store",
-      password: body.store_password,
-      displayName: "Store",
-      role: "Operator"
-    },
-    {
-      username: "trw_trd",
-      password: body.trw_trd_password,
-      displayName: "TRW/TRD",
-      role: "Operator"
-    }
-  ];
-
-  for (const account of accounts) {
-    if (
-      typeof account.password !== "string" ||
-      account.password.trim() === ""
-    ) {
-      return json({
-        ok: false,
-        error: "กรุณาระบุรหัสผ่านให้ครบทั้ง 3 บัญชี"
-      }, 400);
-    }
-  }
-
-  const createdAt = now();
-
-  const statements = accounts.map(account =>
-    env.DB.prepare(`
-      INSERT INTO users (
-        user_id,
-        username,
-        display_name,
-        password_hash,
-        role,
-        active,
-        must_change_password,
-        session_version,
-        created_at,
-        updated_at
-      )
-      VALUES (?, ?, ?, ?, ?, 1, 0, 1, ?, ?)
-    `).bind(
-      id(),
-      account.username,
-      account.displayName,
-      account.password,
-      account.role,
-      createdAt,
-      createdAt
-    )
-  );
-
-  try {
-    await env.DB.batch(statements);
-  } catch (error) {
-    console.error("Initial account setup failed");
-
-    return json({
-      ok: false,
-      error: "สร้างบัญชีไม่สำเร็จ"
-    }, 500);
-  }
-
-  return json({
-    ok: true,
-    message: "สร้างบัญชี admin, store และ trw_trd แล้ว"
-  }, 201);
-}
+/* -----------------------------
+   Login
+----------------------------- */
 
 async function handleLogin(request, env) {
   if (request.method !== "POST") {
@@ -163,6 +54,8 @@ async function handleLogin(request, env) {
     }, 400);
   }
 
+  const username = body.username.trim();
+
   const user = await env.DB.prepare(`
     SELECT
       user_id,
@@ -174,7 +67,7 @@ async function handleLogin(request, env) {
     FROM users
     WHERE username = ? COLLATE NOCASE
     LIMIT 1
-  `).bind(body.username.trim()).first();
+  `).bind(username).first();
 
   if (!user || Number(user.active) !== 1) {
     return json({
@@ -183,6 +76,10 @@ async function handleLogin(request, env) {
     }, 401);
   }
 
+  /*
+    ระบบแบบง่ายตามที่ตกลงกัน:
+    password_hash เก็บรหัสผ่านตรง ๆ ใน D1
+  */
   if (user.password_hash !== body.password) {
     return json({
       ok: false,
@@ -200,6 +97,11 @@ async function handleLogin(request, env) {
     }
   });
 }
+
+/* -----------------------------
+   Inspections
+----------------------------- */
+
 async function handleInspections(request, env) {
   if (request.method === "GET") {
     const result = await env.DB.prepare(`
@@ -224,24 +126,29 @@ async function handleInspections(request, env) {
       ORDER BY i.updated_at DESC
       LIMIT 100
     `).all();
+
     return json({
       ok: true,
       inspections: result.results || []
     });
   }
+
   if (request.method !== "POST") {
     return json({
       ok: false,
-      error: "ส่งข้อมูลด้วย GET หรือ POST เท่านั้น"
+      error: "รองรับเฉพาะ GET และ POST"
     }, 405);
   }
+
   const body = await readJson(request);
+
   if (!body || typeof body !== "object") {
     return json({
       ok: false,
       error: "ข้อมูลไม่ถูกต้อง"
     }, 400);
   }
+
   const employeeGid = String(body.employee_gid || "").trim();
   const employeeName = String(body.employee_name || "").trim();
   const department = String(body.department || "").trim();
@@ -249,42 +156,91 @@ async function handleInspections(request, env) {
   const notes = String(body.notes || "");
   const decision = String(body.decision || "");
   const resultMgL = Number(body.result_mg_l);
-  if (!employeeGid || !employeeName || !department || !recordedBy) {
+
+  if (!employeeGid) {
     return json({
       ok: false,
-      error: "กรุณากรอก GID ชื่อ แผนก และผู้บันทึกให้ครบ"
+      error: "กรุณาระบุ Employee GID"
     }, 400);
   }
+
+  if (!employeeName) {
+    return json({
+      ok: false,
+      error: "กรุณาระบุชื่อพนักงาน"
+    }, 400);
+  }
+
+  if (!department) {
+    return json({
+      ok: false,
+      error: "กรุณาระบุแผนก"
+    }, 400);
+  }
+
+  if (!recordedBy) {
+    return json({
+      ok: false,
+      error: "ไม่พบผู้บันทึก"
+    }, 400);
+  }
+
   if (!Number.isFinite(resultMgL) || resultMgL < 0) {
     return json({
       ok: false,
       error: "ค่าแอลกอฮอล์ต้องเป็นตัวเลขตั้งแต่ 0 ขึ้นไป"
     }, 400);
   }
+
   if (!["Passed", "NotPassed"].includes(decision)) {
     return json({
       ok: false,
       error: "กรุณาเลือก Passed หรือ NotPassed"
     }, 400);
   }
+
+  /*
+    ตาราง D1 ปัจจุบันใช้กฎ zero-only-v1:
+    ค่า 0 ต้อง Passed
+    ค่ามากกว่า 0 ต้อง NotPassed
+  */
+  if (resultMgL === 0 && decision !== "Passed") {
+    return json({
+      ok: false,
+      error: "ถ้าค่าแอลกอฮอล์เป็น 0 ต้องเลือก Passed"
+    }, 400);
+  }
+
+  if (resultMgL > 0 && decision !== "NotPassed") {
+    return json({
+      ok: false,
+      error: "ถ้าค่าแอลกอฮอล์มากกว่า 0 ต้องเลือก NotPassed"
+    }, 400);
+  }
+
   const recorder = await env.DB.prepare(`
     SELECT user_id
     FROM users
     WHERE user_id = ?
       AND active = 1
+    LIMIT 1
   `).bind(recordedBy).first();
+
   if (!recorder) {
     return json({
       ok: false,
       error: "ไม่พบผู้บันทึกหรือผู้บันทึกถูกปิดใช้งาน"
     }, 400);
   }
-  const inspectionId = crypto.randomUUID();
-  const attemptId = crypto.randomUUID();
-  const testedAt = new Date().toISOString();
-  const testStatus =
+
+  const inspectionId = newId();
+  const attemptId = newId();
+  const timestamp = now();
+
+  const inspectionStatus =
     decision === "Passed" ? "Passed" : "Awaiting2";
-  const inspection = env.DB.prepare(`
+
+  const inspectionStatement = env.DB.prepare(`
     INSERT INTO inspections (
       inspection_id,
       employee_gid,
@@ -302,22 +258,25 @@ async function handleInspections(request, env) {
       updated_by,
       updated_at
     )
-    VALUES (?, ?, ?, ?, ?, ?, ?, 1, '[]', ?, 1, ?, ?, ?, ?)
+    VALUES (
+      ?, ?, ?, ?, ?, ?, ?, 1, '[]', ?, 1, ?, ?, ?, ?
+    )
   `).bind(
     inspectionId,
     employeeGid,
     employeeName,
     department,
-    testedAt,
-    testedAt,
-    testStatus,
+    timestamp,
+    timestamp,
+    inspectionStatus,
     notes,
     recordedBy,
-    testedAt,
+    timestamp,
     recordedBy,
-    testedAt
+    timestamp
   );
-  const attempt = env.DB.prepare(`
+
+  const attemptStatement = env.DB.prepare(`
     INSERT INTO inspection_attempts (
       attempt_id,
       inspection_id,
@@ -330,55 +289,65 @@ async function handleInspections(request, env) {
       recorded_by,
       recorded_at
     )
-    VALUES (?, ?, 1, ?, ?, ?, 'zero-only-v1', ?, ?, ?)
+    VALUES (
+      ?, ?, 1, ?, ?, ?, 'zero-only-v1', ?, ?, ?
+    )
   `).bind(
     attemptId,
     inspectionId,
-    testedAt,
+    timestamp,
     resultMgL,
     decision,
     notes,
     recordedBy,
-    testedAt
+    timestamp
   );
+
   try {
-    await env.DB.batch([inspection, attempt]);
+    await env.DB.batch([
+      inspectionStatement,
+      attemptStatement
+    ]);
   } catch (error) {
-    console.error("Inspection creation failed");
+    console.error("Inspection insert failed");
+
     return json({
       ok: false,
-      error: "บันทึกการตรวจไม่สำเร็จ ตรวจสอบว่าค่าแอลกอฮอล์กับผลตัดสินสอดคล้องกัน"
-    }, 400);
+      error: "บันทึกการตรวจไม่สำเร็จ"
+    }, 500);
   }
+
   return json({
     ok: true,
     inspection_id: inspectionId,
     attempt_no: 1,
-    test_status: testStatus
+    test_status: inspectionStatus
   }, 201);
 }
+
+/* -----------------------------
+   Worker
+----------------------------- */
+
 export default {
   async fetch(request, env) {
     const url = new URL(request.url);
+
     if (request.method === "OPTIONS") {
-  return new Response(null, {
-    status: 204,
-    headers: {
-      "Access-Control-Allow-Origin": "*",
-      "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-      "Access-Control-Allow-Headers": "Content-Type"
+      return new Response(null, {
+        status: 204,
+        headers: CORS_HEADERS
+      });
     }
-  });
-}
+
+    if (!env.DB) {
+      return json({
+        ok: false,
+        error: "D1 binding DB is missing"
+      }, 503);
+    }
 
     try {
-      if (!env.DB) {
-        return json({
-          ok: false,
-          error: "D1 binding DB is missing"
-        }, 503);
-      }
-
       if (request.method === "GET" && url.pathname === "/health") {
         const migration = await env.DB.prepare(`
           SELECT MAX(version) AS version
@@ -393,13 +362,13 @@ export default {
         });
       }
 
-      if (url.pathname === "/api/setup") {
-        return await handleSetup(request, env);
+      if (url.pathname === "/api/login") {
+        return await handleLogin(request, env);
       }
 
       if (url.pathname === "/api/inspections") {
-  return await handleInspections(request, env);
-}
+        return await handleInspections(request, env);
+      }
 
       return json({
         ok: false,
