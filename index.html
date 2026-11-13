@@ -1,0 +1,166 @@
+<!doctype html>
+<html lang="th">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Alcohol Test & Key Control</title>
+  <style>
+    body {
+      margin: 0;
+      font-family: Arial, sans-serif;
+      background: #eef4f7;
+      color: #17323b;
+    }
+    .box {
+      width: min(420px, calc(100% - 32px));
+      margin: 80px auto;
+      padding: 28px;
+      background: white;
+      border-radius: 14px;
+      box-shadow: 0 4px 18px #0002;
+    }
+    h1 {
+      margin-top: 0;
+      font-size: 24px;
+    }
+    label {
+      display: block;
+      margin-top: 16px;
+      font-weight: bold;
+    }
+    input,
+    button {
+      width: 100%;
+      box-sizing: border-box;
+      padding: 12px;
+      margin-top: 7px;
+      border-radius: 8px;
+      border: 1px solid #b8c8ce;
+      font-size: 16px;
+    }
+    button {
+      margin-top: 22px;
+      border: 0;
+      background: #007b83;
+      color: white;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #00636a;
+    }
+    .message {
+      margin-top: 18px;
+      white-space: pre-wrap;
+    }
+    .success {
+      color: #176b35;
+    }
+    .error {
+      color: #b42318;
+    }
+    .hidden {
+      display: none;
+    }
+    .user-card {
+      padding: 16px;
+      background: #edf8f1;
+      border-radius: 10px;
+      margin-top: 18px;
+    }
+    .logout {
+      background: #68757a;
+    }
+  </style>
+</head>
+<body>
+  <main class="box" id="login-page">
+    <h1>Alcohol Test & Key Control</h1>
+    <form id="login-form">
+      <label for="username">Username</label>
+      <input
+        id="username"
+        type="text"
+        autocomplete="username"
+        required
+      >
+      <label for="password">Password</label>
+      <input
+        id="password"
+        type="password"
+        autocomplete="current-password"
+        required
+      >
+      <button type="submit">Login</button>
+    </form>
+    <div id="login-message" class="message"></div>
+  </main>
+  <main class="box hidden" id="home-page">
+    <h1>Alcohol Test & Key Control</h1>
+    <div class="user-card">
+      <div>เข้าสู่ระบบแล้ว</div>
+      <strong id="display-name"></strong>
+      <div id="user-role"></div>
+    </div>
+    <button type="button" onclick="alert('เมนูตรวจแอลกอฮอล์จะเพิ่มในขั้นถัดไป')">
+      ตรวจแอลกอฮอล์
+    </button>
+    <button type="button" onclick="alert('เมนูจัดการกุญแจจะเพิ่มในขั้นถัดไป')">
+      จัดการกุญแจ
+    </button>
+    <button class="logout" type="button" id="logout-button">
+      Logout
+    </button>
+  </main>
+  <script>
+    const API_URL =
+      "https://alcohol-key-control-api.mrtafrc.workers.dev";
+    const loginPage = document.getElementById("login-page");
+    const homePage = document.getElementById("home-page");
+    const loginForm = document.getElementById("login-form");
+    const loginMessage = document.getElementById("login-message");
+    function showHome(user) {
+      document.getElementById("display-name").textContent =
+        user.displayName + " (" + user.username + ")";
+      document.getElementById("user-role").textContent =
+        "สิทธิ์: " + user.role;
+      loginPage.classList.add("hidden");
+      homePage.classList.remove("hidden");
+    }
+    loginForm.addEventListener("submit", async function(event) {
+      event.preventDefault();
+      loginMessage.className = "message";
+      loginMessage.textContent = "กำลังเข้าสู่ระบบ...";
+      const username = document.getElementById("username").value.trim();
+      const password = document.getElementById("password").value;
+      try {
+        const response = await fetch(API_URL + "/api/login", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            username,
+            password
+          })
+        });
+        const result = await response.json();
+        if (!response.ok || !result.ok) {
+          throw new Error(result.error || "เข้าสู่ระบบไม่สำเร็จ");
+        }
+        loginForm.reset();
+        loginMessage.textContent = "";
+        showHome(result.user);
+      } catch (error) {
+        loginMessage.className = "message error";
+        loginMessage.textContent = error.message;
+      }
+    });
+    document.getElementById("logout-button")
+      .addEventListener("click", function() {
+        homePage.classList.add("hidden");
+        loginPage.classList.remove("hidden");
+        loginMessage.textContent = "";
+      });
+  </script>
+</body>
+</html>
