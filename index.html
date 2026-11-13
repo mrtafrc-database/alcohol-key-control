@@ -975,7 +975,11 @@
               .map(vehicle => `
                 <option value="${esc(vehicle.VehicleID)}"
                   ${vehicle.Borrowed ? "disabled" : ""}>
-                  ${esc(vehicle.Plate)} / ${esc(vehicle.VehicleName)}
+                  ${esc(
+                    vehicle.OwnerDepartment
+                      ? vehicle.OwnerDepartment + " - " + vehicle.Plate
+                      : vehicle.Plate
+                  )}
                   ${vehicle.Borrowed ? " — ยังไม่คืนกุญแจ" : ""}
                 </option>
               `).join("")}
@@ -1388,9 +1392,11 @@
             <button class="btn fixed" id="addAdminVehicle">เพิ่มรถ</button>
           </div>
           ${table([
-            "Vehicle ID", "ทะเบียนรถ", "ชื่อรถ", "ใช้งาน", "กุญแจ", "จัดการ"
+            "Vehicle ID", "แผนกเจ้าของรถ", "ทะเบียนรถ",
+            "ชื่อรถ", "ใช้งาน", "กุญแจ", "จัดการ"
           ], admin.vehicles.map(vehicle => [
             esc(vehicle.VehicleID),
+            esc(vehicle.OwnerDepartment || "—"),
             plateLabel(vehicle.Plate),
             esc(vehicle.VehicleName),
             vehicle.Active ? "ใช่" : "ไม่",
@@ -1481,6 +1487,13 @@
                    required maxlength="100">
           </div>
           <div class="field">
+            <label for="vehicleOwnerDepartment">แผนกเจ้าของรถ</label>
+            <input id="vehicleOwnerDepartment"
+              value="${esc(vehicle.OwnerDepartment || "")}"
+              maxlength="80"
+              placeholder="เช่น COM, SIG, TRW/TRD">
+          </div>
+          <div class="field">
             <label for="vehicleName">ชื่อรถ *</label>
             <input id="vehicleName" value="${esc(vehicle.VehicleName)}"
                    required maxlength="200">
@@ -1509,6 +1522,7 @@
             vehicleId: $("vehicleId").value,
             plate: $("vehiclePlate").value,
             vehicleName: $("vehicleName").value,
+            ownerDepartment: $("vehicleOwnerDepartment").value.trim(),
             active: $("vehicleActive").checked
           });
           closeModal();
