@@ -2,324 +2,251 @@
 <html lang="th">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
   <title>Alcohol Test & Key Control</title>
   <style>
-    :root {
-      --blue: #007b83;
-      --blue-dark: #005f66;
-      --yellow: #f5c542;
-      --green: #18794e;
-      --red: #b42318;
-      --text: #17323b;
-      --muted: #60747b;
-      --line: #d8e2e5;
-      --background: #eef4f7;
-      --card: #ffffff;
-    }
-    * {
-      box-sizing: border-box;
-    }
+    * { box-sizing: border-box; }
     body {
       margin: 0;
       font-family: Arial, sans-serif;
-      color: var(--text);
-      background: var(--background);
+      color: #17323b;
+      background: #eef4f7;
     }
     header {
-      background: var(--blue);
+      background: #007b83;
       color: white;
-      padding: 16px 24px;
+      padding: 15px 22px;
     }
-    header .header-inner {
-      max-width: 1100px;
+    .header-inner {
+      max-width: 1200px;
       margin: auto;
       display: flex;
-      align-items: center;
       justify-content: space-between;
-      gap: 16px;
+      align-items: center;
+      gap: 15px;
     }
     header h1 {
       margin: 0;
       font-size: 21px;
     }
-    header small {
-      opacity: .85;
-    }
     main {
-      max-width: 1100px;
-      margin: 24px auto;
+      max-width: 1200px;
+      margin: 22px auto;
       padding: 0 16px;
     }
     .card {
-      background: var(--card);
-      border: 1px solid var(--line);
-      border-radius: 14px;
-      padding: 22px;
+      background: white;
+      border: 1px solid #d8e2e5;
+      border-radius: 13px;
+      padding: 20px;
       box-shadow: 0 3px 12px #17323b12;
     }
     .login-card {
-      max-width: 430px;
+      max-width: 420px;
       margin: 70px auto;
     }
-    h2 {
-      margin-top: 0;
-      font-size: 22px;
-    }
-    h3 {
-      margin-top: 0;
-      font-size: 18px;
-    }
+    h2 { margin-top: 0; }
     label {
       display: block;
-      margin-top: 14px;
+      margin-top: 12px;
       font-weight: bold;
     }
-    input,
-    select,
-    textarea,
-    button {
+    input, select, textarea, button {
       width: 100%;
-      font: inherit;
-      border-radius: 8px;
-    }
-    input,
-    select,
-    textarea {
-      border: 1px solid #b8c8ce;
-      padding: 11px;
+      padding: 10px;
       margin-top: 6px;
+      font: inherit;
+      border-radius: 7px;
+    }
+    input, select, textarea {
+      border: 1px solid #b8c8ce;
       background: white;
     }
     textarea {
-      min-height: 80px;
+      min-height: 70px;
       resize: vertical;
     }
     button {
       border: 0;
-      padding: 11px 15px;
-      background: var(--blue);
+      background: #007b83;
       color: white;
       cursor: pointer;
-      margin-top: 18px;
+      margin-top: 16px;
     }
-    button:hover {
-      background: var(--blue-dark);
-    }
-    button.secondary {
-      background: #68757a;
-    }
-    button.warning {
-      background: #b77900;
-    }
+    button:hover { background: #005f66; }
+    button.secondary { background: #68757a; }
+    button.warning { background: #b77900; }
+    button.danger { background: #b42318; }
     button.small {
       width: auto;
       margin: 0;
-      padding: 8px 13px;
+      padding: 8px 12px;
     }
-    .hidden {
-      display: none !important;
-    }
+    .hidden { display: none !important; }
     .message {
-      min-height: 22px;
-      margin-top: 14px;
+      min-height: 20px;
+      margin-top: 12px;
       white-space: pre-wrap;
     }
-    .error {
-      color: var(--red);
-    }
-    .success {
-      color: var(--green);
-    }
-    .top-actions {
-      display: flex;
-      align-items: center;
-      gap: 12px;
-    }
-    .top-actions button {
-      margin: 0;
-    }
-    .user-label {
-      color: white;
-      font-size: 14px;
-    }
+    .error { color: #b42318; }
+    .success { color: #18794e; }
     .layout {
       display: grid;
-      grid-template-columns: 360px 1fr;
+      grid-template-columns: 350px 1fr;
       gap: 20px;
       align-items: start;
     }
     .form-row {
       display: grid;
       grid-template-columns: 1fr 1fr;
-      gap: 12px;
+      gap: 10px;
+    }
+    .tabs {
+      max-width: 1200px;
+      margin: 18px auto 0;
+      padding: 0 16px;
+      display: flex;
+      gap: 8px;
+    }
+    .tabs button {
+      width: auto;
+      margin: 0;
+      background: #dce9ec;
+      color: #17323b;
+    }
+    .tabs button.active {
+      background: #007b83;
+      color: white;
+    }
+    .toolbar {
+      display: flex;
+      gap: 10px;
+      align-items: end;
+      margin-bottom: 15px;
+    }
+    .toolbar > div {
+      flex: 1;
     }
     .table-wrap {
       overflow-x: auto;
     }
     table {
       width: 100%;
+      min-width: 850px;
       border-collapse: collapse;
-      min-width: 760px;
     }
-    th,
-    td {
-      padding: 10px 9px;
+    th, td {
+      padding: 9px;
+      border-bottom: 1px solid #d8e2e5;
       text-align: left;
-      border-bottom: 1px solid var(--line);
-      vertical-align: top;
       font-size: 14px;
+      vertical-align: top;
     }
     th {
       background: #eaf3f5;
       white-space: nowrap;
     }
-    .status {
+    .badge {
       display: inline-block;
       padding: 4px 8px;
-      border-radius: 999px;
+      border-radius: 12px;
       font-size: 12px;
       font-weight: bold;
     }
-    .status-passed {
-      color: #176b35;
-      background: #dcf5e5;
-    }
-    .status-awaiting {
-      color: #8a5a00;
-      background: #fff0c2;
-    }
-    .status-failed {
-      color: #a61b16;
-      background: #ffe1df;
-    }
-    .empty {
-      color: var(--muted);
-      text-align: center;
-      padding: 25px;
-    }
-    @media (max-width: 800px) {
-      .layout {
-        grid-template-columns: 1fr;
-      }
-      .form-row {
-        grid-template-columns: 1fr;
-        gap: 0;
-      }
-      header .header-inner {
-        align-items: flex-start;
-        flex-direction: column;
-      }
-      .top-actions {
-        width: 100%;
-        justify-content: space-between;
-      }
+    .passed { background: #dcf5e5; color: #176b35; }
+    .awaiting { background: #fff0c2; color: #8a5a00; }
+    .failed { background: #ffe1df; color: #a61b16; }
+    .borrowed { background: #fff0c2; color: #8a5a00; }
+    .returned { background: #dcf5e5; color: #176b35; }
+    @media (max-width: 850px) {
+      .layout { grid-template-columns: 1fr; }
+      .form-row { grid-template-columns: 1fr; }
+      .header-inner { align-items: flex-start; flex-direction: column; }
+      .toolbar { display: block; }
+      .toolbar button { margin-top: 8px; }
     }
   </style>
 </head>
 <body>
-  <!-- Login -->
-  <section id="login-page">
-    <div class="card login-card">
-      <h2>Alcohol Test & Key Control</h2>
-      <p>เข้าสู่ระบบเพื่อใช้งาน</p>
-      <form id="login-form">
-        <label for="login-username">Username</label>
-        <input
-          id="login-username"
-          type="text"
-          autocomplete="username"
-          required
-        >
-        <label for="login-password">Password</label>
-        <input
-          id="login-password"
-          type="password"
-          autocomplete="current-password"
-          required
-        >
-        <button type="submit">Login</button>
-      </form>
-      <div id="login-message" class="message"></div>
-    </div>
-  </section>
-  <!-- Application -->
-  <section id="app-page" class="hidden">
-    <header>
-      <div class="header-inner">
-        <div>
-          <h1>Alcohol Test & Key Control</h1>
-          <small>ระบบตรวจแอลกอฮอล์และจัดการกุญแจ</small>
-        </div>
-        <div class="top-actions">
-          <span id="user-label" class="user-label"></span>
-          <button id="logout-button" class="secondary small">
-            Logout
-          </button>
-        </div>
+<section id="login-page">
+  <div class="card login-card">
+    <h2>Alcohol Test & Key Control</h2>
+    <form id="login-form">
+      <label>Username</label>
+      <input id="login-username" required>
+      <label>Password</label>
+      <input id="login-password" type="password" required>
+      <button>Login</button>
+    </form>
+    <div id="login-message" class="message"></div>
+  </div>
+</section>
+<section id="app-page" class="hidden">
+  <header>
+    <div class="header-inner">
+      <div>
+        <h1>Alcohol Test & Key Control</h1>
+        <small>ระบบตรวจแอลกอฮอล์และจัดการกุญแจ</small>
       </div>
-    </header>
-    <main>
+      <div>
+        <span id="user-label"></span>
+        <button id="logout" class="secondary small">Logout</button>
+      </div>
+    </div>
+  </header>
+  <nav class="tabs">
+    <button class="tab active" data-tab="inspection-tab">
+      ตรวจแอลกอฮอล์
+    </button>
+    <button class="tab" data-tab="vehicle-tab">
+      รถ
+    </button>
+    <button class="tab" data-tab="key-tab">
+      กุญแจ
+    </button>
+  </nav>
+  <main>
+    <!-- Inspection -->
+    <section id="inspection-tab" class="tab-page">
       <div class="layout">
-        <!-- New inspection -->
         <div class="card">
-          <h2>ตรวจแอลกอฮอล์</h2>
+          <h2>บันทึกการตรวจ</h2>
           <form id="inspection-form">
-            <label for="employee-gid">Employee GID</label>
-            <input
-              id="employee-gid"
-              type="text"
-              placeholder="เช่น 12345678"
-              required
-            >
-            <label for="employee-name">ชื่อพนักงาน</label>
-            <input
-              id="employee-name"
-              type="text"
-              required
-            >
-            <label for="department">แผนก</label>
-            <input
-              id="department"
-              type="text"
-              required
-            >
+            <label>Employee GID</label>
+            <input id="employee-gid" required>
+            <label>ชื่อพนักงาน</label>
+            <input id="employee-name" required>
+            <label>แผนก</label>
+            <input id="department" required>
             <div class="form-row">
               <div>
-                <label for="result-mg-l">ค่าแอลกอฮอล์ mg/L</label>
-                <input
-                  id="result-mg-l"
-                  type="number"
-                  min="0"
-                  step="0.001"
-                  value="0"
-                  required
-                >
+                <label>ค่าแอลกอฮอล์ mg/L</label>
+                <input id="result-mg-l" type="number"
+                       min="0" step="0.001" value="0" required>
               </div>
               <div>
-                <label for="decision">ผลตัดสิน</label>
-                <select id="decision" required>
+                <label>ผลตัดสิน</label>
+                <select id="decision">
                   <option value="Passed">Passed</option>
                   <option value="NotPassed">NotPassed</option>
                 </select>
               </div>
             </div>
-            <label for="inspection-notes">หมายเหตุ</label>
-            <textarea
-              id="inspection-notes"
-              placeholder="ใส่หมายเหตุถ้ามี"
-            ></textarea>
-            <button type="submit">
-              บันทึกการตรวจ
-            </button>
+            <label>หมายเหตุ</label>
+            <textarea id="inspection-notes"></textarea>
+            <button>บันทึกการตรวจครั้งที่ 1</button>
           </form>
           <div id="inspection-message" class="message"></div>
         </div>
-        <!-- Inspection list -->
         <div class="card">
-          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
-            <h2>รายการตรวจล่าสุด</h2>
-            <button id="refresh-button" class="secondary small">
+          <div class="toolbar">
+            <div>
+              <label>ค้นหา</label>
+              <input id="inspection-search"
+                     placeholder="GID / ชื่อ / แผนก">
+            </div>
+            <button id="inspection-refresh"
+                    class="secondary small">
               Refresh
             </button>
           </div>
@@ -331,224 +258,383 @@
                   <th>GID</th>
                   <th>ชื่อ</th>
                   <th>แผนก</th>
-                  <th>ครั้งที่</th>
-                  <th>ค่า mg/L</th>
-                  <th>ผลตัดสิน</th>
+                  <th>ครั้ง</th>
+                  <th>mg/L</th>
+                  <th>ผล</th>
+                  <th>สถานะ</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="inspection-list"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+    <!-- Vehicles -->
+    <section id="vehicle-tab" class="tab-page hidden">
+      <div class="layout">
+        <div class="card">
+          <h2>เพิ่มรถ</h2>
+          <form id="vehicle-form">
+            <label>ทะเบียนรถ</label>
+            <input id="vehicle-plate" required>
+            <label>ชื่อรถ / รายละเอียด</label>
+            <input id="vehicle-name">
+            <button>เพิ่มรถ</button>
+          </form>
+          <div id="vehicle-message" class="message"></div>
+        </div>
+        <div class="card">
+          <h2>รายการรถ</h2>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>ทะเบียน</th>
+                  <th>ชื่อรถ</th>
                   <th>สถานะ</th>
                 </tr>
               </thead>
-              <tbody id="inspection-table-body">
-                <tr>
-                  <td colspan="8" class="empty">
-                    กำลังโหลดข้อมูล...
-                  </td>
-                </tr>
-              </tbody>
+              <tbody id="vehicle-list"></tbody>
             </table>
           </div>
-          <div id="list-message" class="message"></div>
         </div>
       </div>
-    </main>
-  </section>
-  <script>
-    const API_URL =
-      "https://alcohol-key-control-api.mrtafrc.workers.dev";
-    const loginPage = document.getElementById("login-page");
-    const appPage = document.getElementById("app-page");
-    const loginForm = document.getElementById("login-form");
-    const loginMessage = document.getElementById("login-message");
-    const inspectionForm =
-      document.getElementById("inspection-form");
-    const inspectionMessage =
-      document.getElementById("inspection-message");
-    const listMessage =
-      document.getElementById("list-message");
-    const tableBody =
-      document.getElementById("inspection-table-body");
-    let currentUser = null;
-    function escapeHtml(value) {
-      return String(value ?? "")
-        .replaceAll("&", "&amp;")
-        .replaceAll("<", "&lt;")
-        .replaceAll(">", "&gt;")
-        .replaceAll('"', "&quot;")
-        .replaceAll("'", "&#039;");
-    }
-    function showApp(user) {
-      currentUser = user;
-      document.getElementById("user-label").textContent =
-        user.displayName +
-        " (" +
-        user.username +
-        ") - " +
-        user.role;
-      loginPage.classList.add("hidden");
-      appPage.classList.remove("hidden");
-      loadInspections();
-    }
-    function showLogin() {
-      currentUser = null;
-      appPage.classList.add("hidden");
-      loginPage.classList.remove("hidden");
-      loginForm.reset();
-    }
-    function statusBadge(status) {
-      if (status === "Passed") {
-        return '<span class="status status-passed">Passed</span>';
-      }
-      if (status === "Awaiting2" || status === "Awaiting3") {
-        return '<span class="status status-awaiting">' +
-          escapeHtml(status) +
-          "</span>";
-      }
-      if (status === "Failed" || status === "NotPassed") {
-        return '<span class="status status-failed">' +
-          escapeHtml(status) +
-          "</span>";
-      }
-      return '<span class="status">' +
-        escapeHtml(status) +
-        "</span>";
-    }
-    function formatDate(value) {
-      if (!value) return "-";
-      const date = new Date(value);
-      if (Number.isNaN(date.getTime())) {
-        return escapeHtml(value);
-      }
-      return date.toLocaleString("th-TH");
-    }
-    async function loadInspections() {
-      listMessage.className = "message";
-      listMessage.textContent = "";
-      try {
-        const response = await fetch(
-          API_URL + "/api/inspections"
-        );
-        const result = await response.json();
-        if (!response.ok || !result.ok) {
-          throw new Error(
-            result.error || "โหลดรายการตรวจไม่สำเร็จ"
-          );
-        }
-        const inspections = result.inspections || [];
-        if (inspections.length === 0) {
-          tableBody.innerHTML =
-            '<tr><td colspan="8" class="empty">' +
-            "ยังไม่มีรายการตรวจ" +
-            "</td></tr>";
-          return;
-        }
-        tableBody.innerHTML = inspections.map(item => `
-          <tr>
-            <td>${formatDate(item.last_tested_at)}</td>
-            <td>${escapeHtml(item.employee_gid)}</td>
-            <td>${escapeHtml(item.employee_name)}</td>
-            <td>${escapeHtml(item.department)}</td>
-            <td>${escapeHtml(item.attempt_no || item.attempt_count)}</td>
-            <td>${escapeHtml(item.result_mg_l)}</td>
-            <td>${escapeHtml(item.decision)}</td>
-            <td>${statusBadge(item.test_status)}</td>
-          </tr>
-        `).join("");
-      } catch (error) {
-        tableBody.innerHTML =
-          '<tr><td colspan="8" class="empty">' +
-          "โหลดข้อมูลไม่สำเร็จ" +
-          "</td></tr>";
-        listMessage.className = "message error";
-        listMessage.textContent = error.message;
-      }
-    }
-    loginForm.addEventListener("submit", async function(event) {
-      event.preventDefault();
-      loginMessage.className = "message";
-      loginMessage.textContent = "กำลังเข้าสู่ระบบ...";
-      const username =
-        document.getElementById("login-username").value.trim();
-      const password =
-        document.getElementById("login-password").value;
-      try {
-        const response = await fetch(
-          API_URL + "/api/login",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify({
-              username,
-              password
-            })
-          }
-        );
-        const result = await response.json();
-        if (!response.ok || !result.ok) {
-          throw new Error(
-            result.error || "เข้าสู่ระบบไม่สำเร็จ"
-          );
-        }
-        loginMessage.textContent = "";
-        showApp(result.user);
-      } catch (error) {
-        loginMessage.className = "message error";
-        loginMessage.textContent = error.message;
-      }
+    </section>
+    <!-- Keys -->
+    <section id="key-tab" class="tab-page hidden">
+      <div class="layout">
+        <div class="card">
+          <h2>ส่งมอบกุญแจ</h2>
+          <form id="handover-form">
+            <label>Inspection ID</label>
+            <input id="handover-inspection-id" required>
+            <label>เลือกรถ</label>
+            <select id="handover-vehicle" required></select>
+            <label>หมายเหตุ</label>
+            <textarea id="handover-notes"></textarea>
+            <button>ส่งมอบกุญแจ</button>
+          </form>
+          <div id="handover-message" class="message"></div>
+        </div>
+        <div class="card">
+          <h2>รายการกุญแจ</h2>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>ทะเบียน</th>
+                  <th>Inspection ID</th>
+                  <th>ส่งมอบเมื่อ</th>
+                  <th>สถานะ</th>
+                  <th></th>
+                </tr>
+              </thead>
+              <tbody id="handover-list"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+</section>
+<script>
+const API = "https://alcohol-key-control-api.mrtafrc.workers.dev";
+let currentUser = null;
+let vehicles = [];
+const $ = id => document.getElementById(id);
+function esc(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+function dateText(value) {
+  if (!value) return "-";
+  const date = new Date(value);
+  return Number.isNaN(date.getTime())
+    ? esc(value)
+    : date.toLocaleString("th-TH");
+}
+function badge(value) {
+  const text = String(value || "");
+  let cls = "";
+  if (text === "Passed" || text === "Returned") cls = "passed";
+  else if (text === "Borrowed") cls = "borrowed";
+  else if (text.includes("Awaiting")) cls = "awaiting";
+  else if (text === "Failed" || text === "NotPassed") cls = "failed";
+  return `<span class="badge ${cls}">${esc(text)}</span>`;
+}
+async function api(path, options = {}) {
+  const response = await fetch(API + path, {
+    headers: {
+      "Content-Type": "application/json"
+    },
+    ...options
+  });
+  const result = await response.json();
+  if (!response.ok || !result.ok) {
+    throw new Error(result.error || "ระบบทำรายการไม่สำเร็จ");
+  }
+  return result;
+}
+function showApp(user) {
+  currentUser = user;
+  $("login-page").classList.add("hidden");
+  $("app-page").classList.remove("hidden");
+  $("user-label").textContent =
+    `${user.displayName} (${user.username}) - ${user.role}`;
+  loadInspections();
+  loadVehicles();
+  loadHandovers();
+}
+$("login-form").addEventListener("submit", async event => {
+  event.preventDefault();
+  try {
+    const result = await api("/api/login", {
+      method: "POST",
+      body: JSON.stringify({
+        username: $("login-username").value.trim(),
+        password: $("login-password").value
+      })
     });
-    inspectionForm.addEventListener("submit", async function(event) {
-      event.preventDefault();
-      inspectionMessage.className = "message";
-      inspectionMessage.textContent = "กำลังบันทึก...";
-      const payload = {
-        employee_gid:
-          document.getElementById("employee-gid").value.trim(),
-        employee_name:
-          document.getElementById("employee-name").value.trim(),
-        department:
-          document.getElementById("department").value.trim(),
-        result_mg_l:
-          Number(document.getElementById("result-mg-l").value),
-        decision:
-          document.getElementById("decision").value,
-        notes:
-          document.getElementById("inspection-notes").value,
+    showApp(result.user);
+  } catch (error) {
+    $("login-message").className = "message error";
+    $("login-message").textContent = error.message;
+  }
+});
+$("logout").addEventListener("click", () => {
+  currentUser = null;
+  $("app-page").classList.add("hidden");
+  $("login-page").classList.remove("hidden");
+  $("login-form").reset();
+});
+document.querySelectorAll(".tab").forEach(button => {
+  button.addEventListener("click", () => {
+    document.querySelectorAll(".tab").forEach(x =>
+      x.classList.remove("active")
+    );
+    document.querySelectorAll(".tab-page").forEach(x =>
+      x.classList.add("hidden")
+    );
+    button.classList.add("active");
+    $(button.dataset.tab).classList.remove("hidden");
+    if (button.dataset.tab === "vehicle-tab") loadVehicles();
+    if (button.dataset.tab === "key-tab") loadHandovers();
+  });
+});
+$("inspection-form").addEventListener("submit", async event => {
+  event.preventDefault();
+  try {
+    const result = await api("/api/inspections", {
+      method: "POST",
+      body: JSON.stringify({
+        employee_gid: $("employee-gid").value.trim(),
+        employee_name: $("employee-name").value.trim(),
+        department: $("department").value.trim(),
+        result_mg_l: Number($("result-mg-l").value),
+        decision: $("decision").value,
+        notes: $("inspection-notes").value,
         recorded_by: currentUser.userId
-      };
-      try {
-        const response = await fetch(
-          API_URL + "/api/inspections",
-          {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json"
-            },
-            body: JSON.stringify(payload)
-          }
-        );
-        const result = await response.json();
-        if (!response.ok || !result.ok) {
-          throw new Error(
-            result.error || "บันทึกการตรวจไม่สำเร็จ"
-          );
-        }
-        inspectionForm.reset();
-        document.getElementById("result-mg-l").value = "0";
-        document.getElementById("decision").value = "Passed";
-        inspectionMessage.className = "message success";
-        inspectionMessage.textContent =
-          "บันทึกสำเร็จ: การตรวจครั้งที่ " +
-          result.attempt_no;
-        await loadInspections();
-      } catch (error) {
-        inspectionMessage.className = "message error";
-        inspectionMessage.textContent = error.message;
-      }
+      })
     });
-    document.getElementById("refresh-button")
-      .addEventListener("click", loadInspections);
-    document.getElementById("logout-button")
-      .addEventListener("click", showLogin);
-  </script>
+    $("inspection-message").className = "message success";
+    $("inspection-message").textContent =
+      `บันทึกสำเร็จ Inspection ID: ${result.inspection_id}`;
+    $("inspection-form").reset();
+    $("result-mg-l").value = "0";
+    $("decision").value = "Passed";
+    loadInspections();
+  } catch (error) {
+    $("inspection-message").className = "message error";
+    $("inspection-message").textContent = error.message;
+  }
+});
+async function loadInspections() {
+  const search = encodeURIComponent(
+    $("inspection-search")?.value.trim() || ""
+  );
+  try {
+    const result = await api(`/api/inspections?search=${search}`);
+    $("inspection-list").innerHTML =
+      (result.inspections || []).map(item => `
+        <tr>
+          <td>${dateText(item.last_tested_at)}</td>
+          <td>${esc(item.employee_gid)}</td>
+          <td>${esc(item.employee_name)}</td>
+          <td>${esc(item.department)}</td>
+          <td>${esc(item.attempt_no || item.attempt_count)}</td>
+          <td>${esc(item.result_mg_l)}</td>
+          <td>${badge(item.decision)}</td>
+          <td>${badge(item.test_status)}</td>
+          <td>
+            <button class="small"
+              onclick="addAttempt('${esc(item.inspection_id)}')">
+              เพิ่ม Attempt
+            </button>
+          </td>
+        </tr>
+      `).join("") ||
+      `<tr><td colspan="9">ยังไม่มีข้อมูล</td></tr>`;
+  } catch (error) {
+    $("inspection-list").innerHTML =
+      `<tr><td colspan="9">${esc(error.message)}</td></tr>`;
+  }
+}
+$("inspection-search").addEventListener("input", loadInspections);
+$("inspection-refresh").addEventListener("click", loadInspections);
+async function addAttempt(inspectionId) {
+  const value = prompt("ค่าแอลกอฮอล์ mg/L");
+  if (value === null) return;
+  const resultMgL = Number(value);
+  if (!Number.isFinite(resultMgL) || resultMgL < 0) {
+    alert("กรุณาระบุค่าแอลกอฮอล์ให้ถูกต้อง");
+    return;
+  }
+  const decision = resultMgL === 0 ? "Passed" : "NotPassed";
+  const notes = prompt("หมายเหตุ", "") ?? "";
+  try {
+    await api(`/api/inspections/${inspectionId}`, {
+      method: "POST",
+      body: JSON.stringify({
+        result_mg_l: resultMgL,
+        decision,
+        notes,
+        recorded_by: currentUser.userId
+      })
+    });
+    alert("บันทึก Attempt สำเร็จ");
+    loadInspections();
+  } catch (error) {
+    alert(error.message);
+  }
+}
+async function loadVehicles() {
+  try {
+    const result = await api("/api/vehicles");
+    vehicles = result.vehicles || [];
+    $("vehicle-list").innerHTML =
+      vehicles.map(vehicle => `
+        <tr>
+          <td>${esc(vehicle.plate)}</td>
+          <td>${esc(vehicle.vehicle_name)}</td>
+          <td>${vehicle.active ? badge("Active") : badge("Inactive")}</td>
+        </tr>
+      `).join("") ||
+      `<tr><td colspan="3">ยังไม่มีข้อมูลรถ</td></tr>`;
+    $("handover-vehicle").innerHTML =
+      `<option value="">เลือก รถ</option>` +
+      vehicles
+        .filter(vehicle => Number(vehicle.active) === 1)
+        .map(vehicle =>
+          `<option value="${esc(vehicle.vehicle_id)}">
+            ${esc(vehicle.plate)} ${esc(vehicle.vehicle_name)}
+          </option>`
+        )
+        .join("");
+  } catch (error) {
+    $("vehicle-list").innerHTML =
+      `<tr><td colspan="3">${esc(error.message)}</td></tr>`;
+  }
+}
+$("vehicle-form").addEventListener("submit", async event => {
+  event.preventDefault();
+  try {
+    await api("/api/vehicles", {
+      method: "POST",
+      body: JSON.stringify({
+        plate: $("vehicle-plate").value.trim(),
+        vehicle_name: $("vehicle-name").value.trim(),
+        created_by: currentUser.userId
+      })
+    });
+    $("vehicle-message").className = "message success";
+    $("vehicle-message").textContent = "เพิ่มรถสำเร็จ";
+    $("vehicle-form").reset();
+    loadVehicles();
+  } catch (error) {
+    $("vehicle-message").className = "message error";
+    $("vehicle-message").textContent = error.message;
+  }
+});
+async function loadHandovers() {
+  try {
+    const result = await api("/api/handovers");
+    $("handover-list").innerHTML =
+      (result.handovers || []).map(item => `
+        <tr>
+          <td>${esc(item.plate_snapshot)}</td>
+          <td>${esc(item.inspection_id)}</td>
+          <td>${dateText(item.handed_over_at)}</td>
+          <td>${badge(item.status)}</td>
+          <td>
+            ${
+              item.status === "Borrowed"
+                ? `<button class="small warning"
+                    onclick="returnKey('${esc(item.handover_id)}')">
+                    รับคืน
+                   </button>`
+                : ""
+            }
+          </td>
+        </tr>
+      `).join("") ||
+      `<tr><td colspan="5">ยังไม่มีรายการกุญแจ</td></tr>`;
+  } catch (error) {
+    $("handover-list").innerHTML =
+      `<tr><td colspan="5">${esc(error.message)}</td></tr>`;
+  }
+}
+$("handover-form").addEventListener("submit", async event => {
+  event.preventDefault();
+  try {
+    await api("/api/handovers", {
+      method: "POST",
+      body: JSON.stringify({
+        inspection_id: $("handover-inspection-id").value.trim(),
+        vehicle_id: $("handover-vehicle").value,
+        handed_over_by: currentUser.userId,
+        notes: $("handover-notes").value
+      })
+    });
+    $("handover-message").className = "message success";
+    $("handover-message").textContent = "ส่งมอบกุญแจสำเร็จ";
+    $("handover-form").reset();
+    loadHandovers();
+  } catch (error) {
+    $("handover-message").className = "message error";
+    $("handover-message").textContent = error.message;
+  }
+});
+async function returnKey(handoverId) {
+  const gid = prompt("GID ผู้คืนกุญแจ");
+  if (!gid) return;
+  const name = prompt("ชื่อผู้คืนกุญแจ");
+  if (!name) return;
+  const department = prompt("แผนก", "") ?? "";
+  const notes = prompt("หมายเหตุ", "") ?? "";
+  try {
+    await api("/api/returns", {
+      method: "POST",
+      body: JSON.stringify({
+        handover_id: handoverId,
+        returned_by_gid: gid,
+        returned_by_name: name,
+        returned_by_department: department,
+        received_by: currentUser.userId,
+        notes
+      })
+    });
+    alert("บันทึกการคืนกุญแจสำเร็จ");
+    loadHandovers();
+  } catch (error) {
+    alert(error.message);
+  }
+}
+</script>
 </body>
 </html>
