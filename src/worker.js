@@ -63,14 +63,19 @@ function decisionResult(data) {
   if (
     data.result === undefined ||
     data.result === null ||
-    String(data.result).trim() === "" ||
-    !["number", "string"].includes(typeof data.result)
+    !["number", "string"].includes(typeof data.result) ||
+    String(data.result).trim() === ""
   ) {
     throw new AppError("กรุณากรอกผลตรวจ");
   }
   const result = Number(data.result);
   if (!Number.isFinite(result) || result < 0 || result > 100000) {
     throw new AppError("ผลตรวจต้องเป็นตัวเลขตั้งแต่ 0 ถึง 100000 mg/L");
+  }
+  if (data.decision === "Passed" && result !== 0) {
+    throw new AppError(
+      "ผลตรวจมากกว่า 0 mg/L ไม่สามารถเลือกผ่านได้ กรุณาเลือกไม่ผ่าน"
+    );
   }
   return {
     result,
@@ -317,8 +322,17 @@ async function commitMutation(
         409
       );
     }
-    if (/MANUAL_PASS_REQUIRED/i.test(message)) {
-      throw new AppError("รายการนี้ยังไม่มีผลผ่านจากผู้ตรวจ", 409);
+    if (/ZERO_PASS_REQUIRED/i.test(message)) {
+      throw new AppError(
+        "ผลตรวจต้องเป็น 0 mg/L เท่านั้นจึงเลือกผ่านได้",
+        409
+      );
+    }
+    if (/KEY_HANDOVER_NOT_ALLOWED/i.test(message)) {
+      throw new AppError(
+        "มอบกุญแจไม่ได้: ตรวจผลล่าสุดและรายการเบิกรถ",
+        409
+      );
     }
     if (/VEHICLE_INACTIVE/i.test(message)) {
       throw new AppError("รถถูกปิดใช้งาน กรุณาเลือกใหม่", 409);
@@ -764,7 +778,34 @@ async function handoverKey(db, user, data) {
   ).bind(id).first();
   if (!record) throw new AppError("ไม่พบรายการตรวจ", 404);
   if (record.test_status !== "Passed") {
-    throw new AppError("ต้องมีผลผ่านจากผู้ตรวจก่อนมอบกุญแจ", 409);
+    throw new AppError("ต้องผ่านการตรวจก่อนมอบกุญแจ", 409);
+  }
+  const latest = await db.prepare(
+    `SELECT result_mg_l, decision
+     FROM inspection_attempts
+     WHERE inspection_id = ? AND attempt_no = ?`
+  ).bind(id, record.attempt_count).first();
+  if (
+    !latest ||
+    latest.decision !== "Passed" ||
+    Number(latest.result_mg_l) !== 0
+  ) {
+    throw new AppError(
+      "ผลตรวจล่าสุดต้องเป็น 0 mg/L และผ่าน จึงมอบกุญแจได้",
+      409
+    );
+  }
+  let planned;
+  try {
+    planned = JSON.parse(record.planned_vehicle_ids_json || "[]");
+  } catch {
+    throw new AppError("ข้อมูลรายการเบิกรถไม่ถูกต้อง", 409);
+  }
+  if (!Array.isArray(planned) || !planned.length) {
+    throw new AppError("รายการนี้ไม่มีการเบิกรถ ไม่สามารถมอบกุญแจได้", 409);
+  }
+  if (ids.some(vehicleId => !planned.includes(vehicleId))) {
+    throw new AppError("มอบได้เฉพาะรถที่อยู่ในรายการเบิกนี้", 409);
   }
   const alreadyIssued = await all(
     db,
