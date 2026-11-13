@@ -320,6 +320,29 @@
       .toast{right:12px;left:12px;bottom:12px}
       #content .table-wrap{max-height:calc(100vh - 240px)}
     }
+    /* Compact rows and two-line test results */
+#content th,
+#content td {
+  padding: 3px 8px;
+}
+
+#content td .attempt-result {
+  padding: 2px 5px;
+  line-height: 1.1;
+}
+
+#content td .attempt-result strong {
+  display: block;
+  font-size: 13px;
+  line-height: 1.1;
+}
+
+#content td .attempt-result small {
+  display: block;
+  margin-top: 1px;
+  font-size: 11px;
+  line-height: 1.1;
+}
   </style>
 </head>
 <body>
@@ -443,6 +466,13 @@
     function actualName(value) {
       return String(value || "").trim() || "ไม่ระบุในข้อมูลเดิม";
     }
+    function inspectionOwnerName(record) {
+  const firstAttempt = (record?.Attempts || []).find(
+    attempt => Number(attempt.AttemptNo) === 1
+  );
+
+  return String(firstAttempt?.InspectorName || "").trim();
+}
     function toast(message, error = false) {
       $("toast").textContent = message;
       $("toast").classList.toggle("error", error);
@@ -607,32 +637,31 @@
       `;
     }
     function attemptCell(record, number) {
-      const attempt = (record.Attempts || []).find(
-        a => Number(a.AttemptNo) === number
-      );
-      if (!attempt) {
-        return `<span class="muted">${
-          record.TestStatus === "Awaiting" + number
-            ? "ยังไม่ได้ตรวจ"
-            : "N/A"
-        }</span>`;
-      }
-      const passed = attempt.Decision === "Passed";
-      const failed = attempt.Decision === "NotPassed";
-      const label = passed ? "ผ่าน" : failed ? "ไม่ผ่าน" : "ไม่ระบุ";
-      return `
-        <div class="attempt-result ${
-          passed ? "attempt-pass" : failed ? "attempt-fail" : ""
-        }">
-          <strong>${esc(attempt.Result)} mg/L · ${label}</strong>
-          <small>${dt(attempt.TestedAt)}</small>
-          <small>ผู้ตรวจ: ${esc(actualName(attempt.InspectorName))}</small>
-          <small>ผู้บันทึก: ${esc(
-            attempt.RecordedByName || attempt.RecordedBy || "—"
-          )}</small>
-        </div>
-      `;
-    }
+  const attempt = (record.Attempts || []).find(
+    a => Number(a.AttemptNo) === number
+  );
+
+  if (!attempt) {
+    return `<span class="muted">${
+      record.TestStatus === "Awaiting" + number
+        ? "ยังไม่ได้ตรวจ"
+        : "N/A"
+    }</span>`;
+  }
+
+  const passed = attempt.Decision === "Passed";
+  const failed = attempt.Decision === "NotPassed";
+  const label = passed ? "ผ่าน" : failed ? "ไม่ผ่าน" : "ไม่ระบุ";
+
+  return `
+    <div class="attempt-result ${
+      passed ? "attempt-pass" : failed ? "attempt-fail" : ""
+    }">
+      <strong>${esc(attempt.Result)} mg/L · ${label}</strong>
+      <small>${dt(attempt.TestedAt)}</small>
+    </div>
+  `;
+}
     function canHandoverRecord(record) {
       if (
         !record ||
@@ -703,7 +732,7 @@
           attemptCell(record,3),
           plateLabel(record.Plate),
           dt(record.BorrowedAt),
-          esc(record.HandoverByName || "—"),
+          esc(actualName(inspectionOwnerName(record))),
           `<div class="actions">${actions}</div>`,
           dt(record.ReturnedAt),
           esc(record.ReturnedAt ? actualName(record.ReceivedByName) : "—"),
@@ -749,7 +778,7 @@
             "ผลเป่าครั้งที่ 3",
             "ทะเบียนรถ",
             "มอบกุญแจ",
-            "มอบโดย",
+            "ตรวจ/มอบกุญแจโดย",
             "ดำเนินการ",
             "รับคืนกุญแจ",
             "รับคืนโดย",
@@ -1085,18 +1114,25 @@
               • รถที่ยังไม่คืนเลือกมอบซ้ำไม่ได้
             </small>
           </div>
-          <div class="field">
-            <label for="inspectorName">ชื่อผู้ตรวจ *</label>
-            <input id="inspectorName" maxlength="200"
-              autocomplete="off" required
-              placeholder="กรอกชื่อเจ้าหน้าที่ผู้ตรวจจริง">
-          </div>
+          ${!record ? `
+  <div class="field">
+    <label for="inspectorName">ชื่อผู้ตรวจ/ผู้มอบกุญแจ *</label>
+    <input id="inspectorName" maxlength="200"
+      autocomplete="off" required
+      placeholder="กรอกชื่อเจ้าหน้าที่ผู้ตรวจและมอบกุญแจ">
+  </div>
+` : `
+  <p class="muted">
+    ผู้ตรวจ/ผู้มอบกุญแจ:
+    <strong>${esc(actualName(inspectionOwnerName(record)))}</strong>
+    — ใช้ชื่อเดิมจากครั้งที่ 1
+  </p>
+`}
           <div class="field">
             <label for="attemptNotes">หมายเหตุครั้งที่ ${number}</label>
             <textarea id="attemptNotes" maxlength="2000"></textarea>
           </div>
           <div class="callout">
-            ผู้บันทึก: ${esc(state.user.displayName)}<br>
             เลือกผ่านได้เฉพาะผลตรวจ 0 mg/L
             • ผลมากกว่า 0 mg/L ต้องเลือกไม่ผ่าน
           </div>
@@ -1164,8 +1200,17 @@
           if (decision === "Passed" && numericResult !== 0) {
             throw new Error("ผลตรวจมากกว่า 0 mg/L ต้องเลือกไม่ผ่าน");
           }
-          const inspectorName = $("inspectorName").value.trim();
-          if (!inspectorName) throw new Error("กรุณากรอกชื่อผู้ตรวจ");
+          const inspectorName = record
+  ? inspectionOwnerName(record)
+  : $("inspectorName").value.trim();
+
+if (!inspectorName) {
+  throw new Error(
+    record
+      ? "รายการเดิมไม่มีชื่อผู้ตรวจครั้งที่ 1 กรุณาให้ผู้ดูแลตรวจสอบก่อนตรวจซ้ำ"
+      : "กรุณากรอกชื่อผู้ตรวจ/ผู้มอบกุญแจ"
+  );
+}
           const ids = getVehicleIds();
           const payload = {
             requestId:rid,
@@ -1312,7 +1357,8 @@
             <textarea id="handoverNotes" maxlength="2000"></textarea>
           </div>
           <div class="callout">
-            ผู้ส่งมอบ: ${esc(state.user.displayName)}
+            ผู้ตรวจ/ผู้มอบกุญแจ:
+${esc(actualName(inspectionOwnerName(record)))}
             <br>เวลามอบบันทึกอัตโนมัติ
             • รถที่ยังไม่คืนมอบซ้ำไม่ได้
           </div>
