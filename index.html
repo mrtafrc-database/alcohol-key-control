@@ -97,7 +97,15 @@
     }
     .topbar .btn.tiny{padding:4px 9px}
     .account{font-size:12px;line-height:1.2;text-align:right}
-    .row{display:grid;grid-template-columns:1fr 1fr;gap:18px}
+    .row{
+      display:grid;
+      grid-template-columns:minmax(0,1fr) minmax(0,1fr);
+      gap:18px;
+    }
+    .row.employee-row{
+      grid-template-columns:minmax(0,1fr) minmax(0,1.5fr) minmax(0,1fr);
+    }
+    .row>.field{min-width:0}
     .toolbar{display:flex;gap:10px;align-items:center;flex-wrap:wrap}
     .toolbar>*{flex:1;min-width:130px}
     .toolbar .fixed{flex:0 0 auto}
@@ -305,7 +313,7 @@
       .main{padding:8px 12px}
       .topbar{gap:6px;flex-wrap:wrap;align-items:flex-start}
       .top-actions{gap:5px;justify-content:flex-end}
-      .row{grid-template-columns:1fr}
+      .row,.row.employee-row{grid-template-columns:1fr}
       .card{padding:18px}
       .login{margin:5vh 18px}
       .modal{padding:18px}
@@ -363,7 +371,7 @@
     </main>
   </div>
   <div id="modal" class="modal-backdrop hidden"
-       role="dialog" aria-modal="true" aria-labelledby="modalTitle">
+    role="dialog" aria-modal="true" aria-labelledby="modalTitle">
     <div class="modal" id="modalContent"></div>
   </div>
   <script>
@@ -381,61 +389,60 @@
       }[ch])
     );
     const state = {
-      token: "",
-      user: null,
-      data: null,
-      history: null,
-      page: "main",
-      admin: null,
-      adminTab: "vehicles",
-      busy: 0,
-      forcedPassword: false
+      token:"",
+      user:null,
+      data:null,
+      history:null,
+      page:"main",
+      admin:null,
+      adminTab:"vehicles",
+      busy:0,
+      forcedPassword:false
     };
-    const mainFilter = {
-      search: "",
-      status: "",
-      page: 1
-    };
+    const mainFilter = { search:"", status:"", page:1 };
     const testLabels = {
-      Passed: "ผ่าน",
-      Awaiting2: "รอตรวจครั้งที่ 2",
-      Awaiting3: "รอตรวจครั้งที่ 3",
-      Failed: "ไม่ผ่าน - จบการตรวจ",
-      Legacy: "ข้อมูลเดิม - ไม่ระบุการตัดสิน"
+      Passed:"ผ่าน",
+      Awaiting2:"รอตรวจครั้งที่ 2",
+      Awaiting3:"รอตรวจครั้งที่ 3",
+      Failed:"ไม่ผ่าน - จบการตรวจ",
+      Legacy:"ข้อมูลเดิม - ไม่ระบุการตัดสิน"
     };
     const keyLabels = {
-      Borrowed: "ยังไม่คืน",
-      Returned: "คืนแล้ว",
-      NoKey: "ไม่เบิกกุญแจ",
-      NotIssued: "ยังไม่มอบ"
+      Borrowed:"ยังไม่คืน",
+      Returned:"คืนแล้ว",
+      NoKey:"ไม่เบิกกุญแจ",
+      NotIssued:"ยังไม่มอบ"
     };
     const statusStyles = {
-      "": "all",
-      Awaiting: "waiting",
-      Awaiting2: "waiting",
-      Awaiting3: "waiting",
-      Passed: "passed",
-      Failed: "failed",
-      Borrowed: "borrowed",
-      Returned: "returned",
-      NoKey: "no-key",
-      NotIssued: "waiting",
-      Legacy: "legacy"
+      "":"all",
+      Awaiting:"waiting",
+      Awaiting2:"waiting",
+      Awaiting3:"waiting",
+      Passed:"passed",
+      Failed:"failed",
+      Borrowed:"borrowed",
+      Returned:"returned",
+      NoKey:"no-key",
+      NotIssued:"waiting",
+      Legacy:"legacy"
     };
     const requestId = () => "R_" + crypto.randomUUID();
     const dt = value => value
       ? new Date(value).toLocaleString("th-TH", {
-          timeZone: "Asia/Bangkok",
-          year: "numeric",
-          month: "2-digit",
-          day: "2-digit",
-          hour: "2-digit",
-          minute: "2-digit",
-          second: "2-digit"
+          timeZone:"Asia/Bangkok",
+          year:"numeric",
+          month:"2-digit",
+          day:"2-digit",
+          hour:"2-digit",
+          minute:"2-digit",
+          second:"2-digit"
         })
       : "—";
     const dateInputSeconds = () =>
-      new Date(Date.now() + 7 * 3600000).toISOString().slice(0, 19);
+      new Date(Date.now() + 7 * 3600000).toISOString().slice(0,19);
+    function actualName(value) {
+      return String(value || "").trim() || "ไม่ระบุในข้อมูลเดิม";
+    }
     function toast(message, error = false) {
       $("toast").textContent = message;
       $("toast").classList.toggle("error", error);
@@ -470,15 +477,15 @@
         let response;
         try {
           response = await fetch(API_BASE + "/api", {
-            method: "POST",
-            cache: "no-store",
-            headers: {
-              "Content-Type": "application/json",
+            method:"POST",
+            cache:"no-store",
+            headers:{
+              "Content-Type":"application/json",
               ...(state.token
-                ? { Authorization: "Bearer " + state.token }
+                ? { Authorization:"Bearer " + state.token }
                 : {})
             },
-            body: JSON.stringify({ ...data, action })
+            body:JSON.stringify({ ...data, action })
           });
         } catch {
           throw new Error(
@@ -495,9 +502,7 @@
         }
         if (!response.ok || !result.ok) {
           const message = result.error || `API error ${response.status}`;
-          if (message.startsWith("SESSION_EXPIRED")) {
-            resetLogin();
-          }
+          if (message.startsWith("SESSION_EXPIRED")) resetLogin();
           throw new Error(message);
         }
         return result.data;
@@ -621,37 +626,40 @@
         }">
           <strong>${esc(attempt.Result)} mg/L · ${label}</strong>
           <small>${dt(attempt.TestedAt)}</small>
-          <small>${esc(attempt.RecordedByName || attempt.RecordedBy)}</small>
+          <small>ผู้ตรวจ: ${esc(actualName(attempt.InspectorName))}</small>
+          <small>ผู้บันทึก: ${esc(
+            attempt.RecordedByName || attempt.RecordedBy || "—"
+          )}</small>
         </div>
       `;
     }
     function canHandoverRecord(record) {
-  if (
-    !record ||
-    record.TestStatus !== "Passed" ||
-    record.KeyStatus !== "NotIssued"
-  ) {
-    return false;
-  }
-  let planned;
-  try {
-    planned = JSON.parse(record.PlannedVehicleIDs || "[]");
-  } catch {
-    return false;
-  }
-  if (!Array.isArray(planned) || !planned.length) return false;
-  const latest = (record.Attempts || []).find(
-    attempt => Number(attempt.AttemptNo) === Number(record.AttemptCount)
-  );
-  return Boolean(
-    latest &&
-    latest.Decision === "Passed" &&
-    latest.Result !== null &&
-    latest.Result !== undefined &&
-    String(latest.Result).trim() !== "" &&
-    Number(latest.Result) === 0
-  );
-}
+      if (
+        !record ||
+        record.TestStatus !== "Passed" ||
+        record.KeyStatus !== "NotIssued"
+      ) {
+        return false;
+      }
+      let planned;
+      try {
+        planned = JSON.parse(record.PlannedVehicleIDs || "[]");
+      } catch {
+        return false;
+      }
+      if (!Array.isArray(planned) || !planned.length) return false;
+      const latest = (record.Attempts || []).find(
+        attempt => Number(attempt.AttemptNo) === Number(record.AttemptCount)
+      );
+      return Boolean(
+        latest &&
+        latest.Decision === "Passed" &&
+        latest.Result !== null &&
+        latest.Result !== undefined &&
+        String(latest.Result).trim() !== "" &&
+        Number(latest.Result) === 0
+      );
+    }
     async function renderMain() {
       const view = await call("mainView", { ...mainFilter });
       state.data = view.bootstrap;
@@ -690,15 +698,15 @@
           dt(record.TestedAt),
           `<strong>${esc(record.EmployeeName)}</strong><br>
            <small>${esc(record.EmployeeID)} / ${esc(record.Department)}</small>`,
-          attemptCell(record, 1),
-          attemptCell(record, 2),
-          attemptCell(record, 3),
+          attemptCell(record,1),
+          attemptCell(record,2),
+          attemptCell(record,3),
           plateLabel(record.Plate),
           dt(record.BorrowedAt),
           esc(record.HandoverByName || "—"),
           `<div class="actions">${actions}</div>`,
           dt(record.ReturnedAt),
-          esc(record.ReceivedByName || "—"),
+          esc(record.ReturnedAt ? actualName(record.ReceivedByName) : "—"),
           testBadge(record.TestStatus),
           badge(keyLabels[record.KeyStatus] || record.KeyStatus, record.KeyStatus),
           `<div class="notes-cell">${esc(record.Notes || "—")}</div>`
@@ -708,12 +716,12 @@
         <div class="card">
           <div class="toolbar">
             <button id="newRecord" class="btn fixed"
-                    style="min-width:110px">+ New</button>
+              style="min-width:110px">+ New</button>
             <input id="mainSearch"
               placeholder="ค้นหาพนักงาน แผนก ทะเบียนรถ หรือหมายเหตุ"
               value="${esc(mainFilter.search)}">
             <select id="mainStatus" data-status="all"
-                    style="max-width:220px">
+              style="max-width:220px">
               <option value="">ทั้งหมด</option>
               <option value="Awaiting">รอตรวจซ้ำ</option>
               <option value="Passed">ผ่าน</option>
@@ -727,8 +735,10 @@
             <button id="mainFind" class="btn secondary fixed">ค้นหา</button>
           </div>
           <div class="callout">
-            ตรวจทีละครั้ง พร้อมวันเวลาและผู้ตรวจ • ผู้ตรวจกดผ่าน / ไม่ผ่านเอง
-            ระบบไม่ตัดสินจากตัวเลข • ไม่จำเป็นต้องเลือกรถ
+            ตรวจทีละครั้ง พร้อมวันเวลาและชื่อผู้ตรวจ
+            • เลือกผ่านได้เฉพาะผล 0 mg/L
+            • ไม่จำเป็นต้องเลือกรถ
+            • เบิกได้ 1 คันต่อรายการตรวจ
             • รถที่ยังไม่คืนกุญแจจะมอบซ้ำไม่ได้
           </div>
           ${table([
@@ -753,7 +763,7 @@
             <small>
               ${history.total} รายการ • หน้า ${mainFilter.page} /
               ${Math.max(1, Math.ceil(history.total / 50))}
-              <br>รถหลายคันแสดงแยกหนึ่งแถวต่อกุญแจ
+              <br>รายการใหม่เบิกได้ 1 คัน • ประวัติเดิมแสดงตามข้อมูลที่มี
             </small>
             <button id="mainNext" class="btn secondary tiny"
               ${mainFilter.page * 50 >= history.total ? "disabled" : ""}>
@@ -827,9 +837,9 @@
         throw new Error("QR ต้องมี GID,ชื่อ,แผนก,ตำแหน่ง จำนวน 4 ช่อง");
       }
       return {
-        gid: parts[0],
-        name: parts[1],
-        department: parts[2]
+        gid:parts[0],
+        name:parts[1],
+        department:parts[2]
       };
     }
     function qrFields(prefix) {
@@ -845,31 +855,36 @@
           </small>
           <div id="${prefix}QRError" class="error"></div>
         </div>
-        <div class="row">
+        <div class="row employee-row">
           <div class="field">
             <label for="${prefix}GID">GID *</label>
             <input id="${prefix}GID" maxlength="80"
-                   autocomplete="off" spellcheck="false">
+              autocomplete="off" spellcheck="false">
           </div>
           <div class="field">
             <label for="${prefix}Name">ชื่อ *</label>
             <input id="${prefix}Name" maxlength="200" autocomplete="off">
           </div>
-        </div>
-        <div class="field">
-          <label for="${prefix}Department">แผนก *</label>
-          <input id="${prefix}Department" maxlength="200" autocomplete="off">
+          <div class="field">
+            <label for="${prefix}Department">แผนก *</label>
+            <input id="${prefix}Department" maxlength="200" autocomplete="off">
+          </div>
         </div>
       `;
     }
     function bindQR(prefix, formId) {
       const input = $(prefix + "QR");
       const error = $(prefix + "QRError");
-      const fields = ["GID", "Name", "Department"].map(
+      const fields = ["GID","Name","Department"].map(
         key => $(prefix + key)
       );
       let timer;
       let lastParsed = "";
+      function nextActionField() {
+        return $(formId).querySelector(
+          "#attemptResult,#receiverName,textarea"
+        );
+      }
       function parse(showError = false) {
         clearTimeout(timer);
         if (input.value === lastParsed) return Boolean(fields[0].value);
@@ -894,24 +909,22 @@
           fields.forEach(field => field.value = "");
         }
         error.textContent = "";
-        timer = setTimeout(() => parse(true), 120);
+        timer = setTimeout(() => parse(true),120);
       };
       input.onblur = () => parse(true);
       input.onkeydown = event => {
         if (
-          ["Enter", "Tab"].includes(event.key) &&
+          ["Enter","Tab"].includes(event.key) &&
           input.value.trim()
         ) {
           event.preventDefault();
-          if (parse(true)) {
-            $(formId).querySelector("#attemptResult,textarea")?.focus();
-          }
+          if (parse(true)) nextActionField()?.focus();
         } else if (event.key === "Enter") {
           event.preventDefault();
           fields[0].focus();
         }
       };
-      fields.forEach((field, index) => {
+      fields.forEach((field,index) => {
         field.oninput = () => {
           clearTimeout(timer);
           lastParsed = input.value;
@@ -920,20 +933,17 @@
         field.onkeydown = event => {
           if (event.key !== "Enter") return;
           event.preventDefault();
-          (
-            fields[index + 1] ||
-            $(formId).querySelector("#attemptResult,textarea")
-          )?.focus();
+          (fields[index + 1] || nextActionField())?.focus();
         };
       });
-      setTimeout(() => input.focus(), 30);
+      setTimeout(() => input.focus(),30);
       return () => {
         clearTimeout(timer);
         if (input.value !== lastParsed) parse(true);
         const person = {
-          gid: fields[0].value.trim(),
-          name: fields[1].value.trim(),
-          department: fields[2].value.trim()
+          gid:fields[0].value.trim(),
+          name:fields[1].value.trim(),
+          department:fields[2].value.trim()
         };
         if (
           !/^[A-Za-z0-9_.-]{1,80}$/.test(person.gid) ||
@@ -947,78 +957,84 @@
         return person;
       };
     }
-    function bindVehicleSelects(selected = [], excludedIds = []) {
+    function bindVehicleSelects(
+      selected = [],
+      excludedIds = [],
+      allowedIds = null
+    ) {
       const container = $("vehicleSelects");
       const excluded = new Set(excludedIds);
-      const getIds = () =>
-        [...container.querySelectorAll("select")]
-          .map(select => select.value)
-          .filter(Boolean);
+      const allowed = allowedIds === null ? null : new Set(allowedIds);
+      const legacyMultiple = selected.length > 1;
+      const vehicles = state.data.vehicles.filter(vehicle =>
+        !excluded.has(vehicle.VehicleID) &&
+        (!allowed || allowed.has(vehicle.VehicleID))
+      );
+      container.innerHTML = `
+        <select aria-label="ทะเบียนรถ">
+          <option value="">ไม่เลือกรถ</option>
+          ${vehicles.map(vehicle => `
+            <option value="${esc(vehicle.VehicleID)}"
+              ${vehicle.Borrowed ? "disabled" : ""}>
+              ${esc(
+                vehicle.OwnerDepartment
+                  ? vehicle.OwnerDepartment + " - " + vehicle.Plate
+                  : vehicle.Plate
+              )}
+              ${vehicle.Borrowed ? " — ยังไม่คืนกุญแจ" : ""}
+            </option>
+          `).join("")}
+        </select>
+        ${legacyMultiple ? `
+          <div class="error">
+            รายการเดิมมีรถหลายคัน กรุณาให้ผู้ดูแลตรวจสอบก่อนดำเนินการต่อ
+            ระบบจะไม่ลดรายการรถเดิมอัตโนมัติ
+          </div>
+        ` : ""}
+      `;
+      const select = container.querySelector("select");
+      const value = selected.length === 1 ? selected[0] : "";
+      const available = vehicles.some(vehicle =>
+        vehicle.VehicleID === value && !vehicle.Borrowed
+      );
+      select.value = available ? value : "";
       function updateLabel() {
         if ($("passAttempt")) {
-          $("passAttempt").textContent = getIds().length
+          $("passAttempt").textContent = select.value
             ? "ผ่าน - มอบกุญแจรถ"
             : "ผ่าน - บันทึกผล";
         }
       }
-      function add(value = "") {
-        if (container.children.length >= 30) {
-          return toast("เลือกรถได้สูงสุด 30 คัน", true);
-        }
-        const row = document.createElement("div");
-        row.className = "toolbar vehicle-row";
-        row.innerHTML = `
-          <select aria-label="ทะเบียนรถ">
-            <option value="">ไม่เลือกรถ</option>
-            ${state.data.vehicles
-              .filter(vehicle => !excluded.has(vehicle.VehicleID))
-              .map(vehicle => `
-                <option value="${esc(vehicle.VehicleID)}"
-                  ${vehicle.Borrowed ? "disabled" : ""}>
-                  ${esc(
-                    vehicle.OwnerDepartment
-                      ? vehicle.OwnerDepartment + " - " + vehicle.Plate
-                      : vehicle.Plate
-                  )}
-                  ${vehicle.Borrowed ? " — ยังไม่คืนกุญแจ" : ""}
-                </option>
-              `).join("")}
-          </select>
-          <button type="button" class="btn secondary tiny fixed">ลบ</button>
-        `;
-        const select = row.querySelector("select");
-        const available = state.data.vehicles.some(
-          vehicle => vehicle.VehicleID === value &&
-            !vehicle.Borrowed &&
-            !excluded.has(value)
-        );
-        select.value = available ? value : "";
-        select.onchange = updateLabel;
-        row.querySelector("button").onclick = () => {
-          row.remove();
-          updateLabel();
-        };
-        container.appendChild(row);
-        updateLabel();
-      }
-      (selected.length ? selected : [""]).forEach(value => add(value));
-      $("addVehicleRow").onclick = () => add();
+      select.onchange = updateLabel;
+      updateLabel();
       return () => {
-        const ids = getIds();
-        if (new Set(ids).size !== ids.length) {
-          throw new Error("เลือกรถซ้ำ กรุณาตรวจรายการ");
+        if (legacyMultiple) {
+          throw new Error(
+            "รายการเดิมมีรถหลายคัน กรุณาให้ผู้ดูแลตรวจสอบก่อนดำเนินการต่อ"
+          );
         }
-        return ids;
+        if (select.value) {
+          const vehicle = vehicles.find(v => v.VehicleID === select.value);
+          if (!vehicle || vehicle.Borrowed) {
+            throw new Error("รถที่เลือกไม่พร้อมเบิก กรุณารีเฟรช");
+          }
+        }
+        return select.value ? [select.value] : [];
       };
     }
     function inspectionModal(record) {
       const number = record ? Number(record.AttemptCount) + 1 : 1;
-      if (number > 3) return toast("ตรวจครบ 3 ครั้งแล้ว", true);
+      if (number > 3) return toast("ตรวจครบ 3 ครั้งแล้ว",true);
       let planned = [];
-      try {
-        planned = record ? JSON.parse(record.PlannedVehicleIDs || "[]") : [];
-      } catch {
-        planned = [];
+      if (record) {
+        try {
+          planned = JSON.parse(record.PlannedVehicleIDs || "[]");
+          if (!Array.isArray(planned)) {
+            throw new Error("ข้อมูลรายการรถไม่ถูกต้อง");
+          }
+        } catch {
+          return toast("ข้อมูลรายการรถไม่ถูกต้อง กรุณาให้ผู้ดูแลตรวจสอบ",true);
+        }
       }
       const rid = requestId();
       openModal(`
@@ -1045,55 +1061,60 @@
               )} นาที ณ เวลาเปิดหน้าต่าง
             </div>
           ` : qrFields("new")}
-          <div class="field">
-            <label for="attemptTime">วันเวลาตรวจครั้งที่ ${number} *</label>
-            <input id="attemptTime" type="datetime-local" step="1"
-              value="${dateInputSeconds()}" required>
-          </div>
-          <div class="field">
-            <label for="attemptResult">
-              ผลเป่าครั้งที่ ${number} (mg/L) *
-            </label>
-            <input id="attemptResult" type="number" step="any"
-              min="0" max="100000" required placeholder="0.000">
+          <div class="row">
+            <div class="field">
+              <label for="attemptTime">วันเวลาตรวจครั้งที่ ${number} *</label>
+              <input id="attemptTime" type="datetime-local" step="1"
+                value="${dateInputSeconds()}" required>
+            </div>
+            <div class="field">
+              <label for="attemptResult">
+                ผลเป่าครั้งที่ ${number} (mg/L) *
+              </label>
+              <input id="attemptResult" type="number" step="any"
+                min="0" max="100000" required placeholder="0.000">
+            </div>
           </div>
           <div class="field">
             <label>ทะเบียนรถ — ไม่บังคับเลือก</label>
             <div id="vehicleSelects"></div>
-            <button id="addVehicleRow" type="button"
-                    class="btn secondary tiny">+ เพิ่มรถอีกคัน</button>
-            <div>
-              <small>
-                หากกดผ่านและเลือกรถ จะบันทึกมอบกุญแจทันที
-                • หากไม่ผ่าน จะเก็บรถที่เลือกไว้สำหรับครั้งถัดไป
-                • รถที่ยังไม่คืนเลือกมอบซ้ำไม่ได้
-              </small>
-            </div>
+            <small>
+              เลือกได้ 1 คันต่อรายการตรวจ
+              • หากกดผ่านและเลือกรถ จะบันทึกมอบกุญแจทันที
+              • หากไม่ผ่าน จะเก็บรถที่เลือกไว้สำหรับครั้งถัดไป
+              • รถที่ยังไม่คืนเลือกมอบซ้ำไม่ได้
+            </small>
+          </div>
+          <div class="field">
+            <label for="inspectorName">ชื่อผู้ตรวจ *</label>
+            <input id="inspectorName" maxlength="200"
+              autocomplete="off" required
+              placeholder="กรอกชื่อเจ้าหน้าที่ผู้ตรวจจริง">
           </div>
           <div class="field">
             <label for="attemptNotes">หมายเหตุครั้งที่ ${number}</label>
             <textarea id="attemptNotes" maxlength="2000"></textarea>
           </div>
           <div class="callout">
-            ผู้ตรวจ: ${esc(state.user.displayName)}<br>
-            ผลผ่าน / ไม่ผ่านเป็นการตัดสินของผู้ตรวจ
-            ไม่ใช่การประเมินอัตโนมัติจากตัวเลข
+            ผู้บันทึก: ${esc(state.user.displayName)}<br>
+            เลือกผ่านได้เฉพาะผลตรวจ 0 mg/L
+            • ผลมากกว่า 0 mg/L ต้องเลือกไม่ผ่าน
           </div>
           <div class="toolbar">
             <button id="passAttempt" class="btn" type="submit"
-                    data-decision="Passed">ผ่าน - บันทึกผล</button>
+              data-decision="Passed">ผ่าน - บันทึกผล</button>
             <button class="btn warning" type="submit"
-                    data-decision="NotPassed">
+              data-decision="NotPassed">
               ${number < 3
                 ? "ไม่ผ่าน - รอตรวจครั้งที่ " + (number + 1)
                 : "ไม่ผ่าน - จบการตรวจ"}
             </button>
             <button id="cancelInspection" type="button"
-                    class="btn secondary">ยกเลิก</button>
+              class="btn secondary">ยกเลิก</button>
           </div>
         </form>
       `);
-      const getEmployee = record ? null : bindQR("new", "inspectionForm");
+      const getEmployee = record ? null : bindQR("new","inspectionForm");
       const getVehicleIds = bindVehicleSelects(planned);
       const resultInput = $("attemptResult");
       const passButton = $("passAttempt");
@@ -1107,15 +1128,14 @@
           Number.isFinite(value) &&
           value >= 0 &&
           value <= 100000;
-        passButton.disabled = !valid || value !== 0;
-        notPassButton.disabled = !valid;
-        passButton.title =
-          valid && value > 0
-            ? "ผลตรวจมากกว่า 0 mg/L ต้องเลือกไม่ผ่าน"
-            : "เลือกผ่านได้เฉพาะผลตรวจ 0 mg/L";
+        passButton.disabled = !valid || value !== 0 || Boolean(state.busy);
+        notPassButton.disabled = !valid || Boolean(state.busy);
+        passButton.title = valid && value > 0
+          ? "ผลตรวจมากกว่า 0 mg/L ต้องเลือกไม่ผ่าน"
+          : "เลือกผ่านได้เฉพาะผลตรวจ 0 mg/L";
       }
-      resultInput.addEventListener("input", updateDecisionButtons);
-      resultInput.addEventListener("change", updateDecisionButtons);
+      resultInput.addEventListener("input",updateDecisionButtons);
+      resultInput.addEventListener("change",updateDecisionButtons);
       updateDecisionButtons();
       $("cancelInspection").onclick = () => closeModal();
       let submitted = false;
@@ -1125,7 +1145,9 @@
         const decision = event.submitter?.dataset.decision;
         if (!decision) return;
         try {
-          const testedAt = new Date($("attemptTime").value + "+07:00");
+          const timeValue = $("attemptTime").value;
+          if (!timeValue) throw new Error("กรุณาระบุวันเวลาตรวจ");
+          const testedAt = new Date(timeValue + "+07:00");
           if (!Number.isFinite(testedAt.getTime())) {
             throw new Error("กรุณาระบุวันเวลาตรวจ");
           }
@@ -1140,25 +1162,26 @@
             throw new Error("ผลตรวจต้องเป็นตัวเลขตั้งแต่ 0 ถึง 100000 mg/L");
           }
           if (decision === "Passed" && numericResult !== 0) {
-            throw new Error(
-              "ผลตรวจมากกว่า 0 mg/L ต้องเลือกไม่ผ่าน"
-            );
+            throw new Error("ผลตรวจมากกว่า 0 mg/L ต้องเลือกไม่ผ่าน");
           }
+          const inspectorName = $("inspectorName").value.trim();
+          if (!inspectorName) throw new Error("กรุณากรอกชื่อผู้ตรวจ");
           const ids = getVehicleIds();
           const payload = {
-            requestId: rid,
+            requestId:rid,
             decision,
             result,
-            testedAt: testedAt.toISOString(),
-            notes: $("attemptNotes").value,
-            vehicleIds: ids,
+            testedAt:testedAt.toISOString(),
+            notes:$("attemptNotes").value,
+            vehicleIds:ids,
+            inspectorName,
             ...(record
               ? {
-                  recordId: record.RecordID,
-                  version: record.Version,
-                  attemptNo: number
+                  recordId:record.RecordID,
+                  version:record.Version,
+                  attemptNo:number
                 }
-              : { employee: getEmployee() })
+              : { employee:getEmployee() })
           };
           submitted = true;
           const output = await call(
@@ -1173,13 +1196,14 @@
           await renderMain();
         } catch (error) {
           submitted = false;
+          if ($("attemptResult")) updateDecisionButtons();
           fail(error);
         }
       };
     }
     function returnModal(id) {
       const record = state.history.rows.find(row => row.DetailID === id);
-      if (!record) return toast("ไม่พบรายการ กรุณารีเฟรช", true);
+      if (!record) return toast("ไม่พบรายการ กรุณารีเฟรช",true);
       const rid = requestId();
       openModal(`
         <h2 id="modalTitle">รับคืนกุญแจ ${esc(record.Plate)}</h2>
@@ -1190,22 +1214,28 @@
         <form id="returnForm">
           ${qrFields("return")}
           <div class="field">
+            <label for="receiverName">ชื่อผู้รับคืน *</label>
+            <input id="receiverName" maxlength="200"
+              autocomplete="off" required
+              placeholder="กรอกชื่อเจ้าหน้าที่ผู้รับคืนกุญแจจริง">
+          </div>
+          <div class="field">
             <label for="returnNotes">หมายเหตุ</label>
             <textarea id="returnNotes" maxlength="2000"></textarea>
           </div>
           <div class="callout">
-            ผู้รับคืน: ${esc(state.user.displayName)}<br>
+            ผู้บันทึก: ${esc(state.user.displayName)}<br>
             เวลาคืน: บันทึกอัตโนมัติเมื่อยืนยัน
           </div>
           <div class="toolbar">
-            <button class="btn">ยืนยันคืนกุญแจ</button>
+            <button class="btn" type="submit">ยืนยันคืนกุญแจ</button>
             <button type="button" class="btn secondary" id="cancelReturn">
               ยกเลิก
             </button>
           </div>
         </form>
       `);
-      const getEmployee = bindQR("return", "returnForm");
+      const getEmployee = bindQR("return","returnForm");
       $("cancelReturn").onclick = () => closeModal();
       let submitted = false;
       $("returnForm").onsubmit = async event => {
@@ -1213,12 +1243,17 @@
         if (submitted) return;
         try {
           const returnedBy = getEmployee();
+          const receiverName = $("receiverName").value.trim();
+          if (!receiverName) {
+            throw new Error("กรุณากรอกชื่อผู้รับคืน");
+          }
           submitted = true;
           const output = await call("returnKey", {
-            requestId: rid,
-            detailId: id,
+            requestId:rid,
+            detailId:id,
             returnedBy,
-            notes: $("returnNotes").value
+            receiverName,
+            notes:$("returnNotes").value
           });
           closeModal();
           toast(output.message);
@@ -1236,18 +1271,32 @@
           true
         );
       }
+      let planned;
       try {
-        // Refresh vehicle availability before showing this dialog.
+        planned = JSON.parse(record.PlannedVehicleIDs || "[]");
+        if (!Array.isArray(planned) || !planned.length) {
+          throw new Error("รายการนี้ไม่มีรถรอมอบกุญแจ");
+        }
+      } catch (error) {
+        return fail(error);
+      }
+      const issued = state.history.rows
+        .filter(row => row.RecordID === record.RecordID && row.VehicleID)
+        .map(row => row.VehicleID);
+      if (issued.length) {
+        return toast(
+          "รายการตรวจนี้เคยมอบกุญแจแล้ว หากเบิกใหม่ให้สร้างรายการตรวจใหม่",
+          true
+        );
+      }
+      try {
         state.data = await call("bootstrap");
       } catch (error) {
         return fail(error);
       }
       const rid = requestId();
-      const issued = state.history.rows
-        .filter(row => row.RecordID === record.RecordID && row.VehicleID)
-        .map(row => row.VehicleID);
       openModal(`
-        <h2 id="modalTitle">มอบกุญแจเพิ่มเติม</h2>
+        <h2 id="modalTitle">มอบกุญแจรถ</h2>
         <p>
           <strong>${esc(record.EmployeeName)}</strong>
           / ${esc(record.Department)}
@@ -1256,8 +1305,7 @@
           <div class="field">
             <label>ทะเบียนรถ *</label>
             <div id="vehicleSelects"></div>
-            <button id="addVehicleRow" type="button"
-                    class="btn secondary tiny">+ เพิ่มรถอีกคัน</button>
+            <small>มอบได้เพียง 1 คันต่อรายการตรวจ</small>
           </div>
           <div class="field">
             <label for="handoverNotes">หมายเหตุ</label>
@@ -1265,17 +1313,25 @@
           </div>
           <div class="callout">
             ผู้ส่งมอบ: ${esc(state.user.displayName)}
-            <br>เวลามอบบันทึกอัตโนมัติ • รถที่ยังไม่คืนมอบซ้ำไม่ได้
+            <br>เวลามอบบันทึกอัตโนมัติ
+            • รถที่ยังไม่คืนมอบซ้ำไม่ได้
           </div>
           <div class="toolbar">
-            <button class="btn">ยืนยันมอบกุญแจ</button>
+            <button class="btn" type="submit">ยืนยันมอบกุญแจ</button>
             <button id="cancelHandover" class="btn secondary" type="button">
               ยกเลิก
             </button>
           </div>
         </form>
       `);
-      const getIds = bindVehicleSelects([], issued);
+      // Limit options to the planned vehicles.
+      // For legacy multi-car plans, choose one explicitly;
+      // the old planned data is not rewritten.
+      const getIds = bindVehicleSelects(
+        planned.length === 1 ? planned : [],
+        issued,
+        planned
+      );
       $("cancelHandover").onclick = () => closeModal();
       let submitted = false;
       $("handoverForm").onsubmit = async event => {
@@ -1284,19 +1340,15 @@
         try {
           const ids = getIds();
           if (!ids.length) throw new Error("กรุณาเลือกรถ");
-          const planned = JSON.parse(record.PlannedVehicleIDs || "[]");
-          if (
-            !Array.isArray(planned) ||
-            ids.some(id => !planned.includes(id))
-          ) {
+          if (ids.some(id => !planned.includes(id))) {
             throw new Error("กรุณาเลือกเฉพาะรถที่อยู่ในรายการเบิกนี้");
           }
           submitted = true;
           const output = await call("handoverKey", {
-            requestId: rid,
-            recordId: record.RecordID,
-            vehicleIds: ids,
-            notes: $("handoverNotes").value
+            requestId:rid,
+            recordId:record.RecordID,
+            vehicleIds:ids,
+            notes:$("handoverNotes").value
           });
           closeModal();
           toast(output.message);
@@ -1323,6 +1375,7 @@
             "วันเวลาตรวจ",
             "การตัดสิน",
             "ผู้ตรวจ",
+            "ผู้บันทึก",
             "เวลาบันทึก",
             "หมายเหตุ"
           ], (record.Attempts || []).map(attempt => [
@@ -1336,7 +1389,8 @@
                   ? "ไม่ผ่าน"
                   : "ไม่ระบุ"
             ),
-            esc(attempt.RecordedByName || attempt.RecordedBy),
+            esc(actualName(attempt.InspectorName)),
+            esc(attempt.RecordedByName || attempt.RecordedBy || "—"),
             dt(attempt.RecordedAt),
             `<div class="notes-cell">${esc(attempt.Notes || "—")}</div>`
           ]))}
@@ -1349,14 +1403,21 @@
           มอบกุญแจ: ${dt(record.BorrowedAt)}<br>
           มอบโดย: ${esc(record.HandoverByName || "—")}<br>
           รับคืน: ${dt(record.ReturnedAt)}<br>
-          รับคืนโดย: ${esc(record.ReceivedByName || "—")}<br>
+          รับคืนโดย: ${esc(
+            record.ReturnedAt ? actualName(record.ReceivedByName) : "—"
+          )}<br>
+          ผู้บันทึกรับคืน: ${esc(record.ReceivedRecordedByName || "—")}<br>
           พนักงานผู้คืน: ${esc(record.ReturnedByName || "—")}
-          ${record.ReturnedByGID ? " / " + esc(record.ReturnedByGID) : ""}<br>
+          ${record.ReturnedByGID ? " / " + esc(record.ReturnedByGID) : ""}
+          ${record.ReturnedByDepartment
+            ? " / " + esc(record.ReturnedByDepartment)
+            : ""}<br>
           หมายเหตุรับคืน: ${esc(record.ReturnNotes || "—")}
         </div>
-        ${record.TestStatus === "Legacy"
-          ? '<p class="muted">ข้อมูลเดิมแสดงตามที่มี ไม่สมมติผลหรือเวลาที่ขาด</p>'
-          : ""}
+        <p class="muted">
+          ข้อมูลเดิมแสดงตามที่มี
+          ไม่เติมชื่อเจ้าหน้าที่หรือเปลี่ยนผลตรวจย้อนหลังอัตโนมัติ
+        </p>
         <button id="closeDetails" class="btn secondary">ปิด</button>
       `);
       $("closeDetails").onclick = () => closeModal();
@@ -1366,10 +1427,10 @@
       $("content").innerHTML = `
         <div class="tabs">
           ${[
-            ["vehicles", "รถ"],
-            ["users", "ผู้ใช้ / สิทธิ์"],
-            ["audit", "Audit Log"]
-          ].map(([id, label]) => `
+            ["vehicles","รถ"],
+            ["users","ผู้ใช้ / สิทธิ์"],
+            ["audit","Audit Log"]
+          ].map(([id,label]) => `
             <button data-tab="${id}"
               class="${state.adminTab === id ? "active" : ""}">
               ${label}
@@ -1392,8 +1453,13 @@
             <button class="btn fixed" id="addAdminVehicle">เพิ่มรถ</button>
           </div>
           ${table([
-            "Vehicle ID", "แผนกเจ้าของรถ", "ทะเบียนรถ",
-            "ชื่อรถ", "ใช้งาน", "กุญแจ", "จัดการ"
+            "Vehicle ID",
+            "แผนกเจ้าของรถ",
+            "ทะเบียนรถ",
+            "ชื่อรถ",
+            "ใช้งาน",
+            "กุญแจ",
+            "จัดการ"
           ], admin.vehicles.map(vehicle => [
             esc(vehicle.VehicleID),
             esc(vehicle.OwnerDepartment || "—"),
@@ -1427,11 +1493,11 @@
             • เฉพาะ Admin จัดการตั้งค่า
           </p>
           ${table([
-            "Username", "ชื่อ", "Role", "ใช้งาน", "จัดการ"
+            "Username","ชื่อ","Role","ใช้งาน","จัดการ"
           ], admin.users.map(user => [
             esc(user.Username),
             esc(user.DisplayName),
-            badge(user.Role, ""),
+            badge(user.Role,""),
             user.Active ? "ใช่" : "ไม่",
             `<button class="btn secondary tiny"
               data-user="${esc(user.Username)}">แก้ไข</button>`
@@ -1447,11 +1513,16 @@
         panel.innerHTML = `
           <h2>Audit Log</h2>
           <p class="muted">
-            แสดง 100 รายการล่าสุด • เก็บใน D1 • ไม่บันทึกรหัสผ่านลง Audit Log
+            แสดง 100 รายการล่าสุด • เก็บใน D1
+            • ไม่บันทึกรหัสผ่านลง Audit Log
           </p>
           ${table([
-            "วันเวลา", "ผู้ดำเนินการ", "Action",
-            "ประเภท", "Entity ID", "รายละเอียด"
+            "วันเวลา",
+            "ผู้ดำเนินการ",
+            "Action",
+            "ประเภท",
+            "Entity ID",
+            "รายละเอียด"
           ], admin.audit.map(row => [
             dt(row.Timestamp),
             esc(row.Actor),
@@ -1459,9 +1530,7 @@
             esc(row.EntityType),
             esc(row.EntityID),
             `<div style="max-width:450px;white-space:normal;
-                         overflow-wrap:anywhere">
-              ${esc(row.DetailsJSON)}
-            </div>`
+              overflow-wrap:anywhere">${esc(row.DetailsJSON)}</div>`
           ]))}
         `;
       }
@@ -1484,7 +1553,7 @@
           <div class="field">
             <label for="vehiclePlate">ทะเบียนรถ *</label>
             <input id="vehiclePlate" value="${esc(vehicle.Plate)}"
-                   required maxlength="100">
+              required maxlength="100">
           </div>
           <div class="field">
             <label for="vehicleOwnerDepartment">แผนกเจ้าของรถ</label>
@@ -1496,7 +1565,7 @@
           <div class="field">
             <label for="vehicleName">ชื่อรถ *</label>
             <input id="vehicleName" value="${esc(vehicle.VehicleName)}"
-                   required maxlength="200">
+              required maxlength="200">
           </div>
           <label class="checkbox-line field">
             <input id="vehicleActive" type="checkbox"
@@ -1504,9 +1573,9 @@
             เปิดใช้งาน
           </label>
           <div class="toolbar">
-            <button class="btn">บันทึก</button>
+            <button class="btn" type="submit">บันทึก</button>
             <button id="cancelVehicle" type="button"
-                    class="btn secondary">ยกเลิก</button>
+              class="btn secondary">ยกเลิก</button>
           </div>
         </form>
       `);
@@ -1518,12 +1587,12 @@
         try {
           submitted = true;
           const output = await call("saveVehicle", {
-            requestId: rid,
-            vehicleId: $("vehicleId").value,
-            plate: $("vehiclePlate").value,
-            vehicleName: $("vehicleName").value,
-            ownerDepartment: $("vehicleOwnerDepartment").value.trim(),
-            active: $("vehicleActive").checked
+            requestId:rid,
+            vehicleId:$("vehicleId").value,
+            plate:$("vehiclePlate").value,
+            vehicleName:$("vehicleName").value,
+            ownerDepartment:$("vehicleOwnerDepartment").value.trim(),
+            active:$("vehicleActive").checked
           });
           closeModal();
           toast(output.message);
@@ -1549,7 +1618,7 @@
             <div class="field">
               <label for="userDisplay">ชื่อแสดงผล *</label>
               <input id="userDisplay" value="${esc(user.DisplayName)}"
-                     required maxlength="200">
+                required maxlength="200">
             </div>
           </div>
           <div class="row">
@@ -1577,11 +1646,12 @@
             เปิดใช้งาน
           </label>
           <div class="callout">
-            รหัสผ่าน 8–128 ตัวอักษร • บัญชีใหม่หรือ Reset ต้องเปลี่ยนรหัสผ่าน
-            เมื่อ Login • การแก้บัญชีจะยกเลิก Session เดิมของบัญชีนั้น
+            รหัสผ่าน 8–128 ตัวอักษร
+            • บัญชีใหม่หรือ Reset ต้องเปลี่ยนรหัสผ่านเมื่อ Login
+            • การแก้บัญชีจะยกเลิก Session เดิมของบัญชีนั้น
           </div>
           <div class="toolbar">
-            <button class="btn">บันทึก</button>
+            <button class="btn" type="submit">บันทึก</button>
             <button id="cancelUser" type="button" class="btn secondary">
               ยกเลิก
             </button>
@@ -1597,12 +1667,12 @@
         try {
           submitted = true;
           const output = await call("saveUser", {
-            requestId: rid,
-            username: $("userName").value,
-            displayName: $("userDisplay").value,
-            role: $("userRole").value,
-            password: $("userPassword").value,
-            active: $("userActive").checked
+            requestId:rid,
+            username:$("userName").value,
+            displayName:$("userDisplay").value,
+            role:$("userRole").value,
+            password:$("userPassword").value,
+            active:$("userActive").checked
           });
           closeModal();
           toast(output.message);
@@ -1639,7 +1709,7 @@
               minlength="8" maxlength="128" required>
           </div>
           <div class="toolbar">
-            <button class="btn">เปลี่ยนรหัสผ่าน</button>
+            <button class="btn" type="submit">เปลี่ยนรหัสผ่าน</button>
             <button id="cancelPassword" type="button" class="btn secondary">
               ${forced ? "ออกจากระบบ" : "ยกเลิก"}
             </button>
@@ -1654,7 +1724,7 @@
         try {
           await call("logout");
         } catch {
-          // Local logout must still complete if the network is unavailable.
+          // Always allow local logout if the network is unavailable.
         }
         resetLogin();
       };
@@ -1663,14 +1733,14 @@
         event.preventDefault();
         if (submitted) return;
         if ($("newPassword").value !== $("confirmPassword").value) {
-          return toast("รหัสผ่านใหม่ไม่ตรงกัน", true);
+          return toast("รหัสผ่านใหม่ไม่ตรงกัน",true);
         }
         try {
           submitted = true;
           const output = await call("changePassword", {
-            requestId: rid,
-            currentPassword: $("oldPassword").value,
-            newPassword: $("newPassword").value
+            requestId:rid,
+            currentPassword:$("oldPassword").value,
+            newPassword:$("newPassword").value
           });
           resetLogin();
           toast(output.message);
@@ -1685,12 +1755,12 @@
       $("loginError").textContent = "";
       try {
         const output = await call("login", {
-          username: $("username").value,
-          password: $("password").value
+          username:$("username").value,
+          password:$("password").value
         });
         state.token = output.token;
         state.user = output.user;
-        sessionStorage.setItem("atkc_token", state.token);
+        sessionStorage.setItem("atkc_token",state.token);
         $("password").value = "";
         if (state.user.mustChangePassword) {
           passwordModal(true);
@@ -1726,7 +1796,7 @@
       state.page = "admin";
       await renderPage().catch(fail);
     };
-    document.addEventListener("keydown", event => {
+    document.addEventListener("keydown",event => {
       if (
         event.key === "Escape" &&
         !state.busy &&
@@ -1735,7 +1805,7 @@
         closeModal();
       }
     });
-    $("modal").addEventListener("click", event => {
+    $("modal").addEventListener("click",event => {
       if (
         event.target === $("modal") &&
         !state.busy &&
@@ -1744,7 +1814,7 @@
         closeModal();
       }
     });
-    window.addEventListener("DOMContentLoaded", async () => {
+    window.addEventListener("DOMContentLoaded",async () => {
       const token = sessionStorage.getItem("atkc_token");
       if (!token) return;
       state.token = token;
