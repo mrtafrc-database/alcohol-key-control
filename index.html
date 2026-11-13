@@ -343,6 +343,15 @@
   font-size: 11px;
   line-height: 1.1;
 }
+
+    /* Keep the QR text field and photo button on one row, including mobile. */
+    .qr-input-row{display:flex;align-items:stretch;gap:8px;min-width:0}
+    .qr-input-row input{flex:1;min-width:0;width:0}
+    .qr-input-row .btn{flex:0 0 auto;padding:9px 12px;white-space:nowrap}
+    @media(max-width:480px){
+      .qr-input-row{gap:6px}
+      .qr-input-row .btn{padding:9px 10px;font-size:13px}
+    }
   </style>
 </head>
 <body>
@@ -501,6 +510,9 @@
           delete button.dataset.busyDisabled;
         }
       });
+      if (!state.busy && $("attemptResult")) {
+        $("attemptResult").dispatchEvent(new Event("input"));
+      }
     }
     async function call(action, data = {}) {
       setBusy(true);
@@ -999,15 +1011,107 @@
         department:parts[2]
       };
     }
+    // Decode photos locally. The decoder library is loaded only when needed.
+    let qrDecoderPromise = null;
+    function loadQRDecoder() {
+      if (typeof window.jsQR === "function") return Promise.resolve(window.jsQR);
+      if (qrDecoderPromise) return qrDecoderPromise;
+      qrDecoderPromise = new Promise((resolve, reject) => {
+        const script = document.createElement("script");
+        let timer;
+        function failed() {
+          clearTimeout(timer);
+          script.onload = script.onerror = null;
+          script.remove();
+          qrDecoderPromise = null;
+          reject(new Error("โหลดตัวอ่าน QR ไม่สำเร็จ ตรวจอินเทอร์เน็ตแล้วลองใหม่ หรือใช้เครื่องสแกน/กรอกข้อมูลเอง"));
+        }
+        script.src = "https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js";
+        script.referrerPolicy = "no-referrer";
+        script.onload = () => {
+          if (typeof window.jsQR !== "function") return failed();
+          clearTimeout(timer);
+          resolve(window.jsQR);
+        };
+        script.onerror = failed;
+        timer = setTimeout(failed, 20000);
+        document.head.appendChild(script);
+      });
+      return qrDecoderPromise;
+    }
+    async function readEmployeeQRPhoto(file) {
+      if (!file || file.size > 25 * 1024 * 1024) {
+        throw new Error("กรุณาเลือกรูปขนาดไม่เกิน 25 MB");
+      }
+      const objectURL = URL.createObjectURL(file);
+      try {
+        const image = await new Promise((resolve, reject) => {
+          const img = new Image();
+          img.onload = () => resolve(img);
+          img.onerror = () => reject(new Error("เปิดรูปไม่ได้ กรุณาถ่ายใหม่หรือใช้รูป JPG/PNG"));
+          img.src = objectURL;
+        });
+        // Try the browser's own decoder first if available.
+        if (typeof window.BarcodeDetector === "function") {
+          try {
+            const detector = new window.BarcodeDetector({ formats:["qr_code"] });
+            const codes = await detector.detect(image);
+            for (const code of codes) {
+              try {
+                parseEmployeeQR(code.rawValue);
+                return code.rawValue;
+              } catch { /* Try another QR or the fallback decoder. */ }
+            }
+          } catch { /* Browser support varies; use jsQR below. */ }
+        }
+        const decode = await loadQRDecoder();
+        const largest = Math.max(image.naturalWidth, image.naturalHeight);
+        const sizes = [...new Set([Math.min(largest, 1600), Math.min(largest, 2400)])];
+        const canvas = document.createElement("canvas");
+        const context = canvas.getContext("2d", { willReadFrequently:true });
+        if (!context) throw new Error("เบราว์เซอร์นี้ไม่รองรับการอ่านรูป QR");
+        let invalidQR = false;
+        for (const size of sizes) {
+          const scale = size / largest;
+          canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
+          canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
+          context.drawImage(image, 0, 0, canvas.width, canvas.height);
+          const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
+          const result = decode(pixels.data, pixels.width, pixels.height, {
+            inversionAttempts:"attemptBoth"
+          });
+          if (result?.data) {
+            try {
+              parseEmployeeQR(result.data);
+              return result.data;
+            } catch { invalidQR = true; }
+          }
+        }
+        if (invalidQR) throw new Error("QR นี้ไม่ใช่ข้อมูลบัตรพนักงานรูปแบบ GID,ชื่อ,แผนก,ตำแหน่ง");
+        throw new Error("อ่าน QR ไม่ได้ กรุณาถ่ายให้ชัด เห็น QR ครบ ไม่เอียง และไม่มีแสงสะท้อน");
+      } finally {
+        URL.revokeObjectURL(objectURL);
+      }
+    }
     function qrFields(prefix) {
       return `
         <div class="field">
           <label for="${prefix}QR">สแกน QR บัตรพนักงาน — ไม่บังคับ</label>
-          <input id="${prefix}QR" autocomplete="off" spellcheck="false"
-            maxlength="1000"
-            placeholder="สแกนบัตร หรือกรอก GID / ชื่อ / แผนกด้านล่าง">
+          <div class="qr-input-row">
+            <input id="${prefix}QR" autocomplete="off" spellcheck="false"
+              maxlength="1000"
+              placeholder="สแกนบัตร หรือกรอก GID / ชื่อ / แผนกด้านล่าง">
+            <button id="${prefix}QRPhotoButton" type="button"
+              class="btn secondary" aria-label="ถ่ายรูปหรือเลือกรูป QR บัตรพนักงาน">
+              ถ่ายรูป QR
+            </button>
+          </div>
+          <input id="${prefix}QRPhoto" class="hidden" type="file"
+            accept="image/*" capture="environment" tabindex="-1">
+
           <small>
-            ใช้เครื่องสแกนที่พิมพ์ข้อความเข้าในช่องนี้
+            ใช้เครื่องสแกน หรือถ่ายรูป QR ให้ชัดเจน
+            • อ่านรูปบนเครื่อง ไม่ส่งรูปไปเซิร์ฟเวอร์
             • ข้อมูลด้านล่างคือข้อมูลที่จะบันทึก
           </small>
           <div id="${prefix}QRError" class="error"></div>
@@ -1093,6 +1197,35 @@
           (fields[index + 1] || nextActionField())?.focus();
         };
       });
+      const photoButton = $(prefix + "QRPhotoButton");
+      const photoInput = $(prefix + "QRPhoto");
+      photoButton.onclick = () => {
+        photoInput.value = "";
+        photoInput.click();
+      };
+      photoInput.onchange = async () => {
+        const file = photoInput.files?.[0];
+        if (!file) return;
+        const originalLabel = photoButton.textContent;
+        photoButton.disabled = true;
+        photoButton.textContent = "กำลังอ่าน...";
+        error.textContent = "";
+        try {
+          const text = await readEmployeeQRPhoto(file);
+          if (!input.isConnected) return;
+          // Reuse the existing QR parser and validation, without auto-submitting.
+          clearTimeout(timer);
+          input.value = text;
+          lastParsed = "";
+          if (parse(true)) toast("อ่าน QR สำเร็จ กรุณาตรวจสอบ GID ชื่อ และแผนกก่อนบันทึก");
+        } catch (err) {
+          if (input.isConnected) error.textContent = err.message || String(err);
+        } finally {
+          photoButton.textContent = originalLabel;
+          photoButton.disabled = Boolean(state.busy);
+          photoInput.value = "";
+        }
+      };
       setTimeout(() => input.focus(),30);
       return () => {
         clearTimeout(timer);
@@ -1218,6 +1351,16 @@
               )} นาที ณ เวลาเปิดหน้าต่าง
             </div>
           ` : qrFields("new")}
+          <div class="field">
+            <label>ทะเบียนรถ — ไม่บังคับเลือก</label>
+            <div id="vehicleSelects"></div>
+            <small>
+              เลือกได้ 1 คันต่อรายการตรวจ
+              • หากกดผ่านและเลือกรถ จะบันทึกมอบกุญแจทันที
+              • หากไม่ผ่าน จะเก็บรถที่เลือกไว้สำหรับครั้งถัดไป
+              • รถที่ยังไม่คืนเลือกมอบซ้ำไม่ได้
+            </small>
+          </div>
           <div class="row">
             <div class="field">
               <label for="attemptTime">วันเวลาตรวจครั้งที่ ${number} *</label>
@@ -1231,16 +1374,6 @@
               <input id="attemptResult" type="number" step="any"
                 min="0" max="100000" required placeholder="0.000">
             </div>
-          </div>
-          <div class="field">
-            <label>ทะเบียนรถ — ไม่บังคับเลือก</label>
-            <div id="vehicleSelects"></div>
-            <small>
-              เลือกได้ 1 คันต่อรายการตรวจ
-              • หากกดผ่านและเลือกรถ จะบันทึกมอบกุญแจทันที
-              • หากไม่ผ่าน จะเก็บรถที่เลือกไว้สำหรับครั้งถัดไป
-              • รถที่ยังไม่คืนเลือกมอบซ้ำไม่ได้
-            </small>
           </div>
           ${!record ? `
   <div class="field">
@@ -1293,7 +1426,10 @@
           value >= 0 &&
           value <= 100000;
         passButton.disabled = !valid || value !== 0 || Boolean(state.busy);
-        notPassButton.disabled = !valid || Boolean(state.busy);
+        notPassButton.disabled = !valid || value === 0 || Boolean(state.busy);
+        notPassButton.title = valid && value === 0
+          ? "ผลตรวจ 0 mg/L ต้องเลือกผ่าน ไม่สามารถเลือกไม่ผ่านได้"
+          : "เลือกไม่ผ่านได้เฉพาะผลตรวจมากกว่า 0 mg/L";
         passButton.title = valid && value > 0
           ? "ผลตรวจมากกว่า 0 mg/L ต้องเลือกไม่ผ่าน"
           : "เลือกผ่านได้เฉพาะผลตรวจ 0 mg/L";
@@ -1327,6 +1463,9 @@
           }
           if (decision === "Passed" && numericResult !== 0) {
             throw new Error("ผลตรวจมากกว่า 0 mg/L ต้องเลือกไม่ผ่าน");
+          }
+          if (decision === "NotPassed" && numericResult === 0) {
+            throw new Error("ผลตรวจ 0 mg/L ต้องเลือกผ่าน ไม่สามารถเลือกไม่ผ่านได้");
           }
           const inspectorName = record
   ? inspectionOwnerName(record)
