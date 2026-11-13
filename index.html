@@ -5,162 +5,550 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Alcohol Test & Key Control</title>
   <style>
+    :root {
+      --blue: #007b83;
+      --blue-dark: #005f66;
+      --yellow: #f5c542;
+      --green: #18794e;
+      --red: #b42318;
+      --text: #17323b;
+      --muted: #60747b;
+      --line: #d8e2e5;
+      --background: #eef4f7;
+      --card: #ffffff;
+    }
+    * {
+      box-sizing: border-box;
+    }
     body {
       margin: 0;
       font-family: Arial, sans-serif;
-      background: #eef4f7;
-      color: #17323b;
+      color: var(--text);
+      background: var(--background);
     }
-    .box {
-      width: min(420px, calc(100% - 32px));
-      margin: 80px auto;
-      padding: 28px;
-      background: white;
+    header {
+      background: var(--blue);
+      color: white;
+      padding: 16px 24px;
+    }
+    header .header-inner {
+      max-width: 1100px;
+      margin: auto;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+    }
+    header h1 {
+      margin: 0;
+      font-size: 21px;
+    }
+    header small {
+      opacity: .85;
+    }
+    main {
+      max-width: 1100px;
+      margin: 24px auto;
+      padding: 0 16px;
+    }
+    .card {
+      background: var(--card);
+      border: 1px solid var(--line);
       border-radius: 14px;
-      box-shadow: 0 4px 18px #0002;
+      padding: 22px;
+      box-shadow: 0 3px 12px #17323b12;
     }
-    h1 {
+    .login-card {
+      max-width: 430px;
+      margin: 70px auto;
+    }
+    h2 {
       margin-top: 0;
-      font-size: 24px;
+      font-size: 22px;
+    }
+    h3 {
+      margin-top: 0;
+      font-size: 18px;
     }
     label {
       display: block;
-      margin-top: 16px;
+      margin-top: 14px;
       font-weight: bold;
     }
     input,
+    select,
+    textarea,
     button {
       width: 100%;
-      box-sizing: border-box;
-      padding: 12px;
-      margin-top: 7px;
+      font: inherit;
       border-radius: 8px;
+    }
+    input,
+    select,
+    textarea {
       border: 1px solid #b8c8ce;
-      font-size: 16px;
+      padding: 11px;
+      margin-top: 6px;
+      background: white;
+    }
+    textarea {
+      min-height: 80px;
+      resize: vertical;
     }
     button {
-      margin-top: 22px;
       border: 0;
-      background: #007b83;
+      padding: 11px 15px;
+      background: var(--blue);
       color: white;
       cursor: pointer;
+      margin-top: 18px;
     }
     button:hover {
-      background: #00636a;
+      background: var(--blue-dark);
     }
-    .message {
-      margin-top: 18px;
-      white-space: pre-wrap;
+    button.secondary {
+      background: #68757a;
     }
-    .success {
-      color: #176b35;
+    button.warning {
+      background: #b77900;
     }
-    .error {
-      color: #b42318;
+    button.small {
+      width: auto;
+      margin: 0;
+      padding: 8px 13px;
     }
     .hidden {
-      display: none;
+      display: none !important;
     }
-    .user-card {
-      padding: 16px;
-      background: #edf8f1;
-      border-radius: 10px;
-      margin-top: 18px;
+    .message {
+      min-height: 22px;
+      margin-top: 14px;
+      white-space: pre-wrap;
     }
-    .logout {
-      background: #68757a;
+    .error {
+      color: var(--red);
+    }
+    .success {
+      color: var(--green);
+    }
+    .top-actions {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+    .top-actions button {
+      margin: 0;
+    }
+    .user-label {
+      color: white;
+      font-size: 14px;
+    }
+    .layout {
+      display: grid;
+      grid-template-columns: 360px 1fr;
+      gap: 20px;
+      align-items: start;
+    }
+    .form-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 12px;
+    }
+    .table-wrap {
+      overflow-x: auto;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      min-width: 760px;
+    }
+    th,
+    td {
+      padding: 10px 9px;
+      text-align: left;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+      font-size: 14px;
+    }
+    th {
+      background: #eaf3f5;
+      white-space: nowrap;
+    }
+    .status {
+      display: inline-block;
+      padding: 4px 8px;
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: bold;
+    }
+    .status-passed {
+      color: #176b35;
+      background: #dcf5e5;
+    }
+    .status-awaiting {
+      color: #8a5a00;
+      background: #fff0c2;
+    }
+    .status-failed {
+      color: #a61b16;
+      background: #ffe1df;
+    }
+    .empty {
+      color: var(--muted);
+      text-align: center;
+      padding: 25px;
+    }
+    @media (max-width: 800px) {
+      .layout {
+        grid-template-columns: 1fr;
+      }
+      .form-row {
+        grid-template-columns: 1fr;
+        gap: 0;
+      }
+      header .header-inner {
+        align-items: flex-start;
+        flex-direction: column;
+      }
+      .top-actions {
+        width: 100%;
+        justify-content: space-between;
+      }
     }
   </style>
 </head>
 <body>
-  <main class="box" id="login-page">
-    <h1>Alcohol Test & Key Control</h1>
-    <form id="login-form">
-      <label for="username">Username</label>
-      <input
-        id="username"
-        type="text"
-        autocomplete="username"
-        required
-      >
-      <label for="password">Password</label>
-      <input
-        id="password"
-        type="password"
-        autocomplete="current-password"
-        required
-      >
-      <button type="submit">Login</button>
-    </form>
-    <div id="login-message" class="message"></div>
-  </main>
-  <main class="box hidden" id="home-page">
-    <h1>Alcohol Test & Key Control</h1>
-    <div class="user-card">
-      <div>เข้าสู่ระบบแล้ว</div>
-      <strong id="display-name"></strong>
-      <div id="user-role"></div>
+  <!-- Login -->
+  <section id="login-page">
+    <div class="card login-card">
+      <h2>Alcohol Test & Key Control</h2>
+      <p>เข้าสู่ระบบเพื่อใช้งาน</p>
+      <form id="login-form">
+        <label for="login-username">Username</label>
+        <input
+          id="login-username"
+          type="text"
+          autocomplete="username"
+          required
+        >
+        <label for="login-password">Password</label>
+        <input
+          id="login-password"
+          type="password"
+          autocomplete="current-password"
+          required
+        >
+        <button type="submit">Login</button>
+      </form>
+      <div id="login-message" class="message"></div>
     </div>
-    <button type="button" onclick="alert('เมนูตรวจแอลกอฮอล์จะเพิ่มในขั้นถัดไป')">
-      ตรวจแอลกอฮอล์
-    </button>
-    <button type="button" onclick="alert('เมนูจัดการกุญแจจะเพิ่มในขั้นถัดไป')">
-      จัดการกุญแจ
-    </button>
-    <button class="logout" type="button" id="logout-button">
-      Logout
-    </button>
-  </main>
+  </section>
+  <!-- Application -->
+  <section id="app-page" class="hidden">
+    <header>
+      <div class="header-inner">
+        <div>
+          <h1>Alcohol Test & Key Control</h1>
+          <small>ระบบตรวจแอลกอฮอล์และจัดการกุญแจ</small>
+        </div>
+        <div class="top-actions">
+          <span id="user-label" class="user-label"></span>
+          <button id="logout-button" class="secondary small">
+            Logout
+          </button>
+        </div>
+      </div>
+    </header>
+    <main>
+      <div class="layout">
+        <!-- New inspection -->
+        <div class="card">
+          <h2>ตรวจแอลกอฮอล์</h2>
+          <form id="inspection-form">
+            <label for="employee-gid">Employee GID</label>
+            <input
+              id="employee-gid"
+              type="text"
+              placeholder="เช่น 12345678"
+              required
+            >
+            <label for="employee-name">ชื่อพนักงาน</label>
+            <input
+              id="employee-name"
+              type="text"
+              required
+            >
+            <label for="department">แผนก</label>
+            <input
+              id="department"
+              type="text"
+              required
+            >
+            <div class="form-row">
+              <div>
+                <label for="result-mg-l">ค่าแอลกอฮอล์ mg/L</label>
+                <input
+                  id="result-mg-l"
+                  type="number"
+                  min="0"
+                  step="0.001"
+                  value="0"
+                  required
+                >
+              </div>
+              <div>
+                <label for="decision">ผลตัดสิน</label>
+                <select id="decision" required>
+                  <option value="Passed">Passed</option>
+                  <option value="NotPassed">NotPassed</option>
+                </select>
+              </div>
+            </div>
+            <label for="inspection-notes">หมายเหตุ</label>
+            <textarea
+              id="inspection-notes"
+              placeholder="ใส่หมายเหตุถ้ามี"
+            ></textarea>
+            <button type="submit">
+              บันทึกการตรวจ
+            </button>
+          </form>
+          <div id="inspection-message" class="message"></div>
+        </div>
+        <!-- Inspection list -->
+        <div class="card">
+          <div style="display:flex;justify-content:space-between;align-items:center;gap:12px;">
+            <h2>รายการตรวจล่าสุด</h2>
+            <button id="refresh-button" class="secondary small">
+              Refresh
+            </button>
+          </div>
+          <div class="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>เวลา</th>
+                  <th>GID</th>
+                  <th>ชื่อ</th>
+                  <th>แผนก</th>
+                  <th>ครั้งที่</th>
+                  <th>ค่า mg/L</th>
+                  <th>ผลตัดสิน</th>
+                  <th>สถานะ</th>
+                </tr>
+              </thead>
+              <tbody id="inspection-table-body">
+                <tr>
+                  <td colspan="8" class="empty">
+                    กำลังโหลดข้อมูล...
+                  </td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <div id="list-message" class="message"></div>
+        </div>
+      </div>
+    </main>
+  </section>
   <script>
     const API_URL =
       "https://alcohol-key-control-api.mrtafrc.workers.dev";
     const loginPage = document.getElementById("login-page");
-    const homePage = document.getElementById("home-page");
+    const appPage = document.getElementById("app-page");
     const loginForm = document.getElementById("login-form");
     const loginMessage = document.getElementById("login-message");
-    function showHome(user) {
-      document.getElementById("display-name").textContent =
-        user.displayName + " (" + user.username + ")";
-      document.getElementById("user-role").textContent =
-        "สิทธิ์: " + user.role;
+    const inspectionForm =
+      document.getElementById("inspection-form");
+    const inspectionMessage =
+      document.getElementById("inspection-message");
+    const listMessage =
+      document.getElementById("list-message");
+    const tableBody =
+      document.getElementById("inspection-table-body");
+    let currentUser = null;
+    function escapeHtml(value) {
+      return String(value ?? "")
+        .replaceAll("&", "&amp;")
+        .replaceAll("<", "&lt;")
+        .replaceAll(">", "&gt;")
+        .replaceAll('"', "&quot;")
+        .replaceAll("'", "&#039;");
+    }
+    function showApp(user) {
+      currentUser = user;
+      document.getElementById("user-label").textContent =
+        user.displayName +
+        " (" +
+        user.username +
+        ") - " +
+        user.role;
       loginPage.classList.add("hidden");
-      homePage.classList.remove("hidden");
+      appPage.classList.remove("hidden");
+      loadInspections();
+    }
+    function showLogin() {
+      currentUser = null;
+      appPage.classList.add("hidden");
+      loginPage.classList.remove("hidden");
+      loginForm.reset();
+    }
+    function statusBadge(status) {
+      if (status === "Passed") {
+        return '<span class="status status-passed">Passed</span>';
+      }
+      if (status === "Awaiting2" || status === "Awaiting3") {
+        return '<span class="status status-awaiting">' +
+          escapeHtml(status) +
+          "</span>";
+      }
+      if (status === "Failed" || status === "NotPassed") {
+        return '<span class="status status-failed">' +
+          escapeHtml(status) +
+          "</span>";
+      }
+      return '<span class="status">' +
+        escapeHtml(status) +
+        "</span>";
+    }
+    function formatDate(value) {
+      if (!value) return "-";
+      const date = new Date(value);
+      if (Number.isNaN(date.getTime())) {
+        return escapeHtml(value);
+      }
+      return date.toLocaleString("th-TH");
+    }
+    async function loadInspections() {
+      listMessage.className = "message";
+      listMessage.textContent = "";
+      try {
+        const response = await fetch(
+          API_URL + "/api/inspections"
+        );
+        const result = await response.json();
+        if (!response.ok || !result.ok) {
+          throw new Error(
+            result.error || "โหลดรายการตรวจไม่สำเร็จ"
+          );
+        }
+        const inspections = result.inspections || [];
+        if (inspections.length === 0) {
+          tableBody.innerHTML =
+            '<tr><td colspan="8" class="empty">' +
+            "ยังไม่มีรายการตรวจ" +
+            "</td></tr>";
+          return;
+        }
+        tableBody.innerHTML = inspections.map(item => `
+          <tr>
+            <td>${formatDate(item.last_tested_at)}</td>
+            <td>${escapeHtml(item.employee_gid)}</td>
+            <td>${escapeHtml(item.employee_name)}</td>
+            <td>${escapeHtml(item.department)}</td>
+            <td>${escapeHtml(item.attempt_no || item.attempt_count)}</td>
+            <td>${escapeHtml(item.result_mg_l)}</td>
+            <td>${escapeHtml(item.decision)}</td>
+            <td>${statusBadge(item.test_status)}</td>
+          </tr>
+        `).join("");
+      } catch (error) {
+        tableBody.innerHTML =
+          '<tr><td colspan="8" class="empty">' +
+          "โหลดข้อมูลไม่สำเร็จ" +
+          "</td></tr>";
+        listMessage.className = "message error";
+        listMessage.textContent = error.message;
+      }
     }
     loginForm.addEventListener("submit", async function(event) {
       event.preventDefault();
       loginMessage.className = "message";
       loginMessage.textContent = "กำลังเข้าสู่ระบบ...";
-      const username = document.getElementById("username").value.trim();
-      const password = document.getElementById("password").value;
+      const username =
+        document.getElementById("login-username").value.trim();
+      const password =
+        document.getElementById("login-password").value;
       try {
-        const response = await fetch(API_URL + "/api/login", {
-          method: "POST",
-          headers: {
-            "Content-Type": "application/json"
-          },
-          body: JSON.stringify({
-            username,
-            password
-          })
-        });
+        const response = await fetch(
+          API_URL + "/api/login",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify({
+              username,
+              password
+            })
+          }
+        );
         const result = await response.json();
         if (!response.ok || !result.ok) {
-          throw new Error(result.error || "เข้าสู่ระบบไม่สำเร็จ");
+          throw new Error(
+            result.error || "เข้าสู่ระบบไม่สำเร็จ"
+          );
         }
-        loginForm.reset();
         loginMessage.textContent = "";
-        showHome(result.user);
+        showApp(result.user);
       } catch (error) {
         loginMessage.className = "message error";
         loginMessage.textContent = error.message;
       }
     });
+    inspectionForm.addEventListener("submit", async function(event) {
+      event.preventDefault();
+      inspectionMessage.className = "message";
+      inspectionMessage.textContent = "กำลังบันทึก...";
+      const payload = {
+        employee_gid:
+          document.getElementById("employee-gid").value.trim(),
+        employee_name:
+          document.getElementById("employee-name").value.trim(),
+        department:
+          document.getElementById("department").value.trim(),
+        result_mg_l:
+          Number(document.getElementById("result-mg-l").value),
+        decision:
+          document.getElementById("decision").value,
+        notes:
+          document.getElementById("inspection-notes").value,
+        recorded_by: currentUser.userId
+      };
+      try {
+        const response = await fetch(
+          API_URL + "/api/inspections",
+          {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json"
+            },
+            body: JSON.stringify(payload)
+          }
+        );
+        const result = await response.json();
+        if (!response.ok || !result.ok) {
+          throw new Error(
+            result.error || "บันทึกการตรวจไม่สำเร็จ"
+          );
+        }
+        inspectionForm.reset();
+        document.getElementById("result-mg-l").value = "0";
+        document.getElementById("decision").value = "Passed";
+        inspectionMessage.className = "message success";
+        inspectionMessage.textContent =
+          "บันทึกสำเร็จ: การตรวจครั้งที่ " +
+          result.attempt_no;
+        await loadInspections();
+      } catch (error) {
+        inspectionMessage.className = "message error";
+        inspectionMessage.textContent = error.message;
+      }
+    });
+    document.getElementById("refresh-button")
+      .addEventListener("click", loadInspections);
     document.getElementById("logout-button")
-      .addEventListener("click", function() {
-        homePage.classList.add("hidden");
-        loginPage.classList.remove("hidden");
-        loginMessage.textContent = "";
-      });
+      .addEventListener("click", showLogin);
   </script>
 </body>
 </html>
