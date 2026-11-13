@@ -356,7 +356,10 @@ async function loadVehicles(db, activeOnly = true) {
        ) AS Borrowed
      FROM vehicles v
      ${activeOnly ? "WHERE v.active = 1" : ""}
-     ORDER BY v.plate COLLATE NOCASE`
+     ORDER BY
+       CASE WHEN TRIM(v.owner_department) = '' THEN 1 ELSE 0 END,
+       v.owner_department COLLATE NOCASE,
+       v.plate COLLATE NOCASE`
   );
 }
 async function bootstrap(db, user) {
