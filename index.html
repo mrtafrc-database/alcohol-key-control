@@ -344,10 +344,15 @@
   line-height: 1.1;
 }
 
-    /* Keep the QR text field and photo button on one row, including mobile. */
+    /* QR input and live-camera button stay on one row on mobile. */
     .qr-input-row{display:flex;align-items:stretch;gap:8px;min-width:0}
     .qr-input-row input{flex:1;min-width:0;width:0}
     .qr-input-row .btn{flex:0 0 auto;padding:9px 12px;white-space:nowrap}
+    .qr-camera{margin-top:10px;border:1px solid var(--line);border-radius:10px;
+      padding:10px;background:#edf5f6;white-space:normal}
+    .qr-camera video{display:block;width:100%;max-width:440px;max-height:280px;
+      margin:0 auto 8px;border-radius:8px;background:#12383f;object-fit:contain}
+    .qr-camera-status{font-size:13px;line-height:1.4;margin-bottom:8px}
     @media(max-width:480px){
       .qr-input-row{gap:6px}
       .qr-input-row .btn{padding:9px 10px;font-size:13px}
@@ -555,11 +560,13 @@
     }
     function closeModal(force = false) {
       if (state.forcedPassword && !force) return;
+      stopActiveQRScanner();
       $("modal").classList.add("hidden");
       $("modalContent").innerHTML = "";
       state.forcedPassword = false;
     }
     function openModal(html) {
+      stopActiveQRScanner();
       $("modalContent").innerHTML = html;
       $("modal").classList.remove("hidden");
       setTimeout(
@@ -1011,7 +1018,17 @@
         department:parts[2]
       };
     }
-    // Decode photos locally. The decoder library is loaded only when needed.
+    // Live camera frames are decoded locally, never uploaded.
+    let activeQRScannerStop = null;
+    function stopActiveQRScanner() {
+      const stop = activeQRScannerStop;
+      activeQRScannerStop = null;
+      if (stop) stop();
+    }
+    document.addEventListener("visibilitychange", () => {
+      if (document.hidden) stopActiveQRScanner();
+    });
+    window.addEventListener("pagehide", stopActiveQRScanner);
     let qrDecoderPromise = null;
     function loadQRDecoder() {
       if (typeof window.jsQR === "function") return Promise.resolve(window.jsQR);
@@ -1039,60 +1056,6 @@
       });
       return qrDecoderPromise;
     }
-    async function readEmployeeQRPhoto(file) {
-      if (!file || file.size > 25 * 1024 * 1024) {
-        throw new Error("กรุณาเลือกรูปขนาดไม่เกิน 25 MB");
-      }
-      const objectURL = URL.createObjectURL(file);
-      try {
-        const image = await new Promise((resolve, reject) => {
-          const img = new Image();
-          img.onload = () => resolve(img);
-          img.onerror = () => reject(new Error("เปิดรูปไม่ได้ กรุณาถ่ายใหม่หรือใช้รูป JPG/PNG"));
-          img.src = objectURL;
-        });
-        // Try the browser's own decoder first if available.
-        if (typeof window.BarcodeDetector === "function") {
-          try {
-            const detector = new window.BarcodeDetector({ formats:["qr_code"] });
-            const codes = await detector.detect(image);
-            for (const code of codes) {
-              try {
-                parseEmployeeQR(code.rawValue);
-                return code.rawValue;
-              } catch { /* Try another QR or the fallback decoder. */ }
-            }
-          } catch { /* Browser support varies; use jsQR below. */ }
-        }
-        const decode = await loadQRDecoder();
-        const largest = Math.max(image.naturalWidth, image.naturalHeight);
-        const sizes = [...new Set([Math.min(largest, 1600), Math.min(largest, 2400)])];
-        const canvas = document.createElement("canvas");
-        const context = canvas.getContext("2d", { willReadFrequently:true });
-        if (!context) throw new Error("เบราว์เซอร์นี้ไม่รองรับการอ่านรูป QR");
-        let invalidQR = false;
-        for (const size of sizes) {
-          const scale = size / largest;
-          canvas.width = Math.max(1, Math.round(image.naturalWidth * scale));
-          canvas.height = Math.max(1, Math.round(image.naturalHeight * scale));
-          context.drawImage(image, 0, 0, canvas.width, canvas.height);
-          const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
-          const result = decode(pixels.data, pixels.width, pixels.height, {
-            inversionAttempts:"attemptBoth"
-          });
-          if (result?.data) {
-            try {
-              parseEmployeeQR(result.data);
-              return result.data;
-            } catch { invalidQR = true; }
-          }
-        }
-        if (invalidQR) throw new Error("QR นี้ไม่ใช่ข้อมูลบัตรพนักงานรูปแบบ GID,ชื่อ,แผนก,ตำแหน่ง");
-        throw new Error("อ่าน QR ไม่ได้ กรุณาถ่ายให้ชัด เห็น QR ครบ ไม่เอียง และไม่มีแสงสะท้อน");
-      } finally {
-        URL.revokeObjectURL(objectURL);
-      }
-    }
     function qrFields(prefix) {
       return `
         <div class="field">
@@ -1101,17 +1064,26 @@
             <input id="${prefix}QR" autocomplete="off" spellcheck="false"
               maxlength="1000"
               placeholder="สแกนบัตร หรือกรอก GID / ชื่อ / แผนกด้านล่าง">
-            <button id="${prefix}QRPhotoButton" type="button"
-              class="btn secondary" aria-label="ถ่ายรูปหรือเลือกรูป QR บัตรพนักงาน">
-              ถ่ายรูป QR
+            <button id="${prefix}QRScanButton" type="button"
+              class="btn secondary" aria-expanded="false"
+              aria-controls="${prefix}QRCamera">
+              สแกน QR
             </button>
           </div>
-          <input id="${prefix}QRPhoto" class="hidden" type="file"
-            accept="image/*" capture="environment" tabindex="-1">
+          <div id="${prefix}QRCamera" class="qr-camera hidden">
+            <video id="${prefix}QRVideo" autoplay muted playsinline
+              aria-label="ภาพกล้องสำหรับสแกน QR"></video>
+            <div id="${prefix}QRScanStatus" class="qr-camera-status"
+              role="status" aria-live="polite">
+              วาง QR บัตรพนักงานให้เห็นครบในภาพกล้อง
+            </div>
+            <button id="${prefix}QRStopButton" type="button"
+              class="btn secondary tiny">ปิดกล้อง</button>
+          </div>
 
           <small>
-            ใช้เครื่องสแกน หรือถ่ายรูป QR ให้ชัดเจน
-            • อ่านรูปบนเครื่อง ไม่ส่งรูปไปเซิร์ฟเวอร์
+            ใช้เครื่องสแกน หรือกดสแกน QR เพื่อเปิดกล้องมือถือ
+            • อ่าน QR บนเครื่อง ไม่ส่งภาพไปเซิร์ฟเวอร์
             • ข้อมูลด้านล่างคือข้อมูลที่จะบันทึก
           </small>
           <div id="${prefix}QRError" class="error"></div>
@@ -1197,37 +1169,144 @@
           (fields[index + 1] || nextActionField())?.focus();
         };
       });
-      const photoButton = $(prefix + "QRPhotoButton");
-      const photoInput = $(prefix + "QRPhoto");
-      photoButton.onclick = () => {
-        photoInput.value = "";
-        photoInput.click();
-      };
-      photoInput.onchange = async () => {
-        const file = photoInput.files?.[0];
-        if (!file) return;
-        const originalLabel = photoButton.textContent;
-        photoButton.disabled = true;
-        photoButton.textContent = "กำลังอ่าน...";
+      const scanButton = $(prefix + "QRScanButton");
+      const stopButton = $(prefix + "QRStopButton");
+      const cameraPanel = $(prefix + "QRCamera");
+      const video = $(prefix + "QRVideo");
+      const scanStatus = $(prefix + "QRScanStatus");
+      let scanning = false;
+      let session = 0;
+      let cameraStream = null;
+      let frameTimer = null;
+      function stopCamera() {
+        session++;
+        scanning = false;
+        clearTimeout(frameTimer);
+        frameTimer = null;
+        if (cameraStream) cameraStream.getTracks().forEach(track => track.stop());
+        cameraStream = null;
+        video.pause();
+        video.srcObject = null;
+        cameraPanel.classList.add("hidden");
+        scanButton.textContent = "สแกน QR";
+        scanButton.setAttribute("aria-expanded", "false");
+        if (activeQRScannerStop === stopCamera) activeQRScannerStop = null;
+      }
+      stopButton.onclick = stopCamera;
+      scanButton.onclick = async () => {
+        if (scanning) return stopCamera();
         error.textContent = "";
+        if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia) {
+          error.textContent = "เปิดกล้องไม่ได้ กรุณาเปิดเว็บผ่าน HTTPS ด้วย Safari หรือ Chrome และอนุญาตใช้กล้อง";
+          return;
+        }
+        stopActiveQRScanner();
+        scanning = true;
+        const thisSession = ++session;
+        const current = () => scanning && session === thisSession && input.isConnected;
+        activeQRScannerStop = stopCamera;
+        cameraPanel.classList.remove("hidden");
+        scanButton.textContent = "หยุดสแกน";
+        scanButton.setAttribute("aria-expanded", "true");
+        scanStatus.textContent = "กำลังเปิดกล้อง กรุณาอนุญาตให้เว็บใช้กล้อง";
         try {
-          const text = await readEmployeeQRPhoto(file);
-          if (!input.isConnected) return;
-          // Reuse the existing QR parser and validation, without auto-submitting.
-          clearTimeout(timer);
-          input.value = text;
-          lastParsed = "";
-          if (parse(true)) toast("อ่าน QR สำเร็จ กรุณาตรวจสอบ GID ชื่อ และแผนกก่อนบันทึก");
+          const stream = await navigator.mediaDevices.getUserMedia({
+            audio:false,
+            video:{ facingMode:{ ideal:"environment" }, width:{ ideal:1280 }, height:{ ideal:720 } }
+          });
+          // Closing a modal or cancelling while permission is pending must release late streams.
+          if (!current()) {
+            stream.getTracks().forEach(track => track.stop());
+            return;
+          }
+          cameraStream = stream;
+          video.srcObject = stream;
+          await video.play();
+          if (!current()) return;
+          let detector = null;
+          if (typeof window.BarcodeDetector === "function") {
+            try {
+              if (!window.BarcodeDetector.getSupportedFormats ||
+                  (await window.BarcodeDetector.getSupportedFormats()).includes("qr_code")) {
+                detector = new window.BarcodeDetector({ formats:["qr_code"] });
+              }
+            } catch { /* Use the cross-browser fallback below. */ }
+          }
+          let decode = null;
+          if (!detector) {
+            scanStatus.textContent = "กำลังโหลดตัวอ่าน QR...";
+            decode = await loadQRDecoder();
+          }
+          if (!current()) return;
+          const canvas = document.createElement("canvas");
+          const context = canvas.getContext("2d", { willReadFrequently:true });
+          if (!context) throw new Error("เบราว์เซอร์นี้ไม่รองรับการอ่าน QR จากกล้อง");
+          scanStatus.textContent = "วาง QR ให้เห็นครบและชัดในภาพกล้อง ระบบจะอ่านอัตโนมัติ";
+          async function scanFrame() {
+            if (!current()) return;
+            try {
+              let texts = [];
+              if (video.readyState >= 2 && video.videoWidth && video.videoHeight) {
+                if (detector) {
+                  try {
+                    texts = (await detector.detect(video)).map(code => code.rawValue);
+                  } catch {
+                    detector = null;
+                    decode = await loadQRDecoder();
+                  }
+                }
+                if (!current()) return;
+                if (!detector) {
+                  const scale = Math.min(1, 960 / Math.max(video.videoWidth, video.videoHeight));
+                  canvas.width = Math.max(1, Math.round(video.videoWidth * scale));
+                  canvas.height = Math.max(1, Math.round(video.videoHeight * scale));
+                  context.drawImage(video, 0, 0, canvas.width, canvas.height);
+                  const pixels = context.getImageData(0, 0, canvas.width, canvas.height);
+                  const qr = decode(pixels.data, pixels.width, pixels.height, {
+                    inversionAttempts:"attemptBoth"
+                  });
+                  if (qr?.data) texts = [qr.data];
+                }
+                if (!current()) return;
+                for (const text of texts) {
+                  try { parseEmployeeQR(text); }
+                  catch {
+                    scanStatus.textContent = "พบ QR แต่ไม่ใช่รูปแบบ GID,ชื่อ,แผนก,ตำแหน่ง กรุณาสแกนบัตรพนักงาน";
+                    continue;
+                  }
+                  clearTimeout(timer);
+                  input.value = text;
+                  lastParsed = "";
+                  parse(true);
+                  stopCamera();
+                  toast("สแกน QR สำเร็จ กรุณาตรวจสอบ GID ชื่อ และแผนกก่อนบันทึก");
+                  return;
+                }
+              }
+            } catch (err) {
+              if (!current()) return;
+              stopCamera();
+              error.textContent = err.message || "อ่านกล้องไม่สำเร็จ กรุณาลองใหม่";
+              return;
+            }
+            if (current()) frameTimer = setTimeout(scanFrame, 180);
+          }
+          scanFrame();
         } catch (err) {
-          if (input.isConnected) error.textContent = err.message || String(err);
-        } finally {
-          photoButton.textContent = originalLabel;
-          photoButton.disabled = Boolean(state.busy);
-          photoInput.value = "";
+          if (!current()) return;
+          stopCamera();
+          error.textContent = ["NotAllowedError", "SecurityError"].includes(err.name)
+            ? "ไม่ได้รับอนุญาตใช้กล้อง กรุณาอนุญาตกล้องในการตั้งค่าเว็บไซต์ แล้วกดสแกนใหม่"
+            : err.name === "NotFoundError"
+              ? "ไม่พบกล้องบนอุปกรณ์นี้ ใช้เครื่องสแกนหรือกรอกข้อมูลเองได้"
+              : err.name === "NotReadableError"
+                ? "กล้องถูกใช้งานอยู่ กรุณาปิดแอปที่ใช้กล้องแล้วลองใหม่"
+                : err.message || "เปิดกล้องไม่สำเร็จ กรุณาใช้ Safari หรือ Chrome แล้วลองใหม่";
         }
       };
       setTimeout(() => input.focus(),30);
       return () => {
+        stopCamera();
         clearTimeout(timer);
         if (input.value !== lastParsed) parse(true);
         const person = {
