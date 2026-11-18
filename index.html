@@ -597,7 +597,7 @@
       $("account").innerHTML =
         `<strong>${esc(state.user.displayName)}</strong><br>` +
         `<span class="muted">${esc(state.user.role)} • ` +
-        `${esc(state.user.username)}</span>`;
+        `${esc(state.user.username)} • ${esc(state.user.staffGroup === "All" ? "ทั้งสองกลุ่ม" : state.user.staffGroup || "ยังไม่กำหนดกลุ่ม")}</span>`;
       $("adminSettingsBtn").classList.toggle(
         "hidden",
         state.user.role !== "Admin"
@@ -1115,7 +1115,7 @@
       let lastParsed = "";
       function nextActionField() {
         return $(formId).querySelector(
-          "#attemptResult,#receiverName,textarea"
+          "#attemptResult,#receiverStaffId,textarea"
         );
       }
       function parse(showError = false) {
@@ -1391,6 +1391,28 @@
         return select.value ? [select.value] : [];
       };
     }
+    function staffSelectField(id, label) {
+      const staff = state.data?.staff || [];
+      const group = state.user?.staffGroup || "";
+      const hint = !group
+        ? "บัญชียังไม่กำหนดกลุ่มเจ้าหน้าที่ ให้ Admin ตั้งค่าที่ผู้ใช้ / สิทธิ์ก่อน"
+        : !staff.length ? "ไม่มีเจ้าหน้าที่ที่เปิดใช้งานในกลุ่มนี้ กรุณาติดต่อ Admin"
+        : "รายชื่อกลุ่ม " + (group === "All" ? "Store และ TRW/TRD" : group);
+      return `<div class="field">
+        <label for="${id}">${esc(label)} *</label>
+        <select id="${id}" required ${!staff.length ? "disabled" : ""}>
+          <option value="">— เลือกชื่อเจ้าหน้าที่ —</option>
+          ${staff.map(person => `<option value="${esc(person.StaffID)}">${esc(person.StaffName)}${group === "All" ? " — " + esc(person.StaffGroup) : ""}</option>`).join("")}
+        </select>
+        <small class="${!staff.length ? "error" : "muted"}">${esc(hint)}</small>
+      </div>`;
+    }
+    function chosenStaff(id) {
+      const value = $(id)?.value || "";
+      const staff = (state.data?.staff || []).find(person => person.StaffID === value);
+      if (!staff) throw new Error("กรุณาเลือกชื่อเจ้าหน้าที่จากรายชื่อของกลุ่มบัญชี");
+      return staff;
+    }
     function inspectionModal(record) {
       const number = record ? Number(record.AttemptCount) + 1 : 1;
       if (number > 3) return toast("ตรวจครบ 3 ครั้งแล้ว",true);
@@ -1454,14 +1476,7 @@
                 min="0" max="100000" required placeholder="0.000">
             </div>
           </div>
-          ${!record ? `
-  <div class="field">
-    <label for="inspectorName">ชื่อผู้ตรวจ/ผู้มอบกุญแจ *</label>
-    <input id="inspectorName" maxlength="200"
-      autocomplete="off" required
-      placeholder="กรอกชื่อเจ้าหน้าที่ผู้ตรวจและมอบกุญแจ">
-  </div>
-` : `
+          ${!record ? staffSelectField("inspectorStaffId", "ชื่อผู้ตรวจ/ผู้มอบกุญแจ") : `
   <p class="muted">
     ผู้ตรวจ/ผู้มอบกุญแจ:
     <strong>${esc(actualName(inspectionOwnerName(record)))}</strong>
@@ -1546,17 +1561,13 @@
           if (decision === "NotPassed" && numericResult === 0) {
             throw new Error("ผลตรวจ 0 mg/L ต้องเลือกผ่าน ไม่สามารถเลือกไม่ผ่านได้");
           }
-          const inspectorName = record
-  ? inspectionOwnerName(record)
-  : $("inspectorName").value.trim();
-
-if (!inspectorName) {
-  throw new Error(
-    record
-      ? "รายการเดิมไม่มีชื่อผู้ตรวจครั้งที่ 1 กรุณาให้ผู้ดูแลตรวจสอบก่อนตรวจซ้ำ"
-      : "กรุณากรอกชื่อผู้ตรวจ/ผู้มอบกุญแจ"
-  );
-}
+          const selectedInspector = record ? null : chosenStaff("inspectorStaffId");
+          const inspectorStaffId = record
+            ? (record.Attempts || []).find(a => Number(a.AttemptNo) === 1)?.InspectorStaffID
+            : selectedInspector.StaffID;
+          if (!inspectorStaffId) {
+            throw new Error("รายการเดิมยังไม่มีรหัสเจ้าหน้าที่ที่ยืนยันแล้ว กรุณาให้ Admin ตรวจสอบก่อนตรวจซ้ำ");
+          }
           const ids = getVehicleIds();
           const payload = {
             requestId:rid,
@@ -1565,7 +1576,7 @@ if (!inspectorName) {
             testedAt:testedAt.toISOString(),
             notes:$("attemptNotes").value,
             vehicleIds:ids,
-            inspectorName,
+            inspectorStaffId,
             ...(record
               ? {
                   recordId:record.RecordID,
@@ -1604,12 +1615,7 @@ if (!inspectorName) {
         </p>
         <form id="returnForm">
           ${qrFields("return")}
-          <div class="field">
-            <label for="receiverName">ชื่อผู้รับคืน *</label>
-            <input id="receiverName" maxlength="200"
-              autocomplete="off" required
-              placeholder="กรอกชื่อเจ้าหน้าที่ผู้รับคืนกุญแจจริง">
-          </div>
+          ${staffSelectField("receiverStaffId", "ชื่อผู้รับคืน")}
           <div class="field">
             <label for="returnNotes">หมายเหตุ</label>
             <textarea id="returnNotes" maxlength="2000"></textarea>
@@ -1634,16 +1640,13 @@ if (!inspectorName) {
         if (submitted) return;
         try {
           const returnedBy = getEmployee();
-          const receiverName = $("receiverName").value.trim();
-          if (!receiverName) {
-            throw new Error("กรุณากรอกชื่อผู้รับคืน");
-          }
+          const receiver = chosenStaff("receiverStaffId");
           submitted = true;
           const output = await call("returnKey", {
             requestId:rid,
             detailId:id,
             returnedBy,
-            receiverName,
+            receiverStaffId:receiver.StaffID,
             notes:$("returnNotes").value
           });
           closeModal();
@@ -1881,15 +1884,17 @@ ${esc(actualName(inspectionOwnerName(record)))}
             <button class="btn fixed" id="addUser">เพิ่มผู้ใช้</button>
           </div>
           <p class="muted">
-            ทุกบัญชีบันทึกผลและรับคืนกุญแจได้ทุกแผนก
+            เลือกชื่อเจ้าหน้าที่ตามกลุ่มที่กำหนดให้บัญชี
+            • บัญชียังไม่กำหนดกลุ่มจะเลือกชื่อไม่ได้
             • เฉพาะ Admin จัดการตั้งค่า
           </p>
           ${table([
-            "Username","ชื่อ","Role","ใช้งาน","จัดการ"
+            "Username","ชื่อ","Role","กลุ่มเจ้าหน้าที่","ใช้งาน","จัดการ"
           ], admin.users.map(user => [
             esc(user.Username),
             esc(user.DisplayName),
             badge(user.Role,""),
+            esc(user.StaffGroup === "All" ? "ทั้งสองกลุ่ม" : user.StaffGroup || "ยังไม่กำหนด"),
             user.Active ? "ใช่" : "ไม่",
             `<button class="btn secondary tiny"
               data-user="${esc(user.Username)}">แก้ไข</button>`
@@ -2032,6 +2037,16 @@ ${esc(actualName(inspectionOwnerName(record)))}
                 ${user.Username ? "" : "required"}>
             </div>
           </div>
+          <div class="field">
+            <label for="userStaffGroup">กลุ่มเจ้าหน้าที่ของบัญชี</label>
+            <select id="userStaffGroup">
+              <option value="">— ยังไม่กำหนด —</option>
+              <option value="Store">Store</option>
+              <option value="TRW/TRD">TRW/TRD</option>
+              <option value="All">ทั้งสองกลุ่ม — เฉพาะ Admin</option>
+            </select>
+            <small>กรองชื่อผู้ตรวจและผู้รับคืนตามกลุ่มนี้ ไม่เกี่ยวกับแผนกของพนักงานผู้เบิกรถ</small>
+          </div>
           <label class="checkbox-line field">
             <input id="userActive" type="checkbox"
               ${user.Active !== false ? "checked" : ""}>
@@ -2051,6 +2066,14 @@ ${esc(actualName(inspectionOwnerName(record)))}
         </form>
       `);
       $("userRole").value = user.Role || "Operator";
+      $("userStaffGroup").value = user.StaffGroup || "";
+      function updateStaffGroupChoices() {
+        const all = $("userStaffGroup").querySelector('[value="All"]');
+        all.disabled = $("userRole").value !== "Admin";
+        if (all.disabled && $("userStaffGroup").value === "All") $("userStaffGroup").value = "";
+      }
+      $("userRole").onchange = updateStaffGroupChoices;
+      updateStaffGroupChoices();
       $("cancelUser").onclick = () => closeModal();
       let submitted = false;
       $("userForm").onsubmit = async event => {
@@ -2063,6 +2086,7 @@ ${esc(actualName(inspectionOwnerName(record)))}
             username:$("userName").value,
             displayName:$("userDisplay").value,
             role:$("userRole").value,
+            staffGroup:$("userStaffGroup").value,
             password:$("userPassword").value,
             active:$("userActive").checked
           });
