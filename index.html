@@ -1394,23 +1394,48 @@
     function staffSelectField(id, label) {
       const staff = state.data?.staff || [];
       const group = state.user?.staffGroup || "";
-      const hint = !group
-        ? "บัญชียังไม่กำหนดกลุ่มเจ้าหน้าที่ ให้ Admin ตั้งค่าที่ผู้ใช้ / สิทธิ์ก่อน"
-        : !staff.length ? "ไม่มีเจ้าหน้าที่ที่เปิดใช้งานในกลุ่มนี้ กรุณาติดต่อ Admin"
-        : "รายชื่อกลุ่ม " + (group === "All" ? "Store และ TRW/TRD" : group);
+      const allowed = ["Store","TRW/TRD"].includes(group) || (group === "All" && state.user?.role === "Admin");
       return `<div class="field">
         <label for="${id}">${esc(label)} *</label>
-        <select id="${id}" required ${!staff.length ? "disabled" : ""}>
+        <select id="${id}" required ${!allowed ? "disabled" : ""}>
           <option value="">— เลือกชื่อเจ้าหน้าที่ —</option>
           ${staff.map(person => `<option value="${esc(person.StaffID)}">${esc(person.StaffName)}${group === "All" ? " — " + esc(person.StaffGroup) : ""}</option>`).join("")}
+          ${allowed ? '<option value="__manual__">อื่น ๆ — กรอกชื่อเอง</option>' : ""}
         </select>
-        <small class="${!staff.length ? "error" : "muted"}">${esc(hint)}</small>
+        <div id="${id}ManualBox" class="hidden" style="margin-top:8px">
+          <label for="${id}ManualName">ชื่อเจ้าหน้าที่ที่ปฏิบัติงานจริง *</label>
+          <input id="${id}ManualName" maxlength="200" autocomplete="off" disabled placeholder="กรอกชื่อและนามสกุล">
+          ${group === "All" ? `<label for="${id}ManualGroup">กลุ่มเจ้าหน้าที่ *</label>
+            <select id="${id}ManualGroup" disabled><option value="">— เลือกกลุ่ม —</option><option value="Store">Store</option><option value="TRW/TRD">TRW/TRD</option></select>` : ""}
+          <small>บันทึกเป็น Manual ไม่เพิ่มชื่อเข้ารายชื่อกลางอัตโนมัติ</small>
+        </div>
+        <small>${allowed ? "เลือกจากรายชื่อ หรือเลือกอื่น ๆ เพื่อกรอกชื่อเอง" : "ให้ Admin กำหนดกลุ่มบัญชีที่ผู้ใช้ / สิทธิ์ก่อน"}</small>
       </div>`;
+    }
+    function bindStaffSelect(id) {
+      const select = $(id);
+      function toggle() {
+        const manual = select.value === "__manual__";
+        $(id + "ManualBox").classList.toggle("hidden", !manual);
+        for (const suffix of ["ManualName","ManualGroup"]) {
+          const field = $(id + suffix);
+          if (field) { field.disabled = !manual; field.required = manual; }
+        }
+      }
+      select.addEventListener("change", toggle);
+      toggle();
     }
     function chosenStaff(id) {
       const value = $(id)?.value || "";
+      if (value === "__manual__") {
+        const name = $(id + "ManualName").value.trim();
+        const group = state.user.staffGroup === "All" ? $(id + "ManualGroup").value : state.user.staffGroup;
+        if (!name || name.length > 200) throw new Error("กรุณากรอกชื่อเจ้าหน้าที่ ไม่เกิน 200 ตัวอักษร");
+        if (!["Store","TRW/TRD"].includes(group)) throw new Error("กรุณาเลือกกลุ่มเจ้าหน้าที่");
+        return {StaffID:"__manual__", ManualName:name, ManualGroup:group};
+      }
       const staff = (state.data?.staff || []).find(person => person.StaffID === value);
-      if (!staff) throw new Error("กรุณาเลือกชื่อเจ้าหน้าที่จากรายชื่อของกลุ่มบัญชี");
+      if (!staff) throw new Error("กรุณาเลือกชื่อเจ้าหน้าที่ หรือเลือกอื่น ๆ เพื่อกรอกชื่อเอง");
       return staff;
     }
     function inspectionModal(record) {
@@ -1505,6 +1530,7 @@
           </div>
         </form>
       `);
+      if (!record) bindStaffSelect("inspectorStaffId");
       const getEmployee = record ? null : bindQR("new","inspectionForm");
       const getVehicleIds = bindVehicleSelects(planned);
       const resultInput = $("attemptResult");
@@ -1562,11 +1588,9 @@
             throw new Error("ผลตรวจ 0 mg/L ต้องเลือกผ่าน ไม่สามารถเลือกไม่ผ่านได้");
           }
           const selectedInspector = record ? null : chosenStaff("inspectorStaffId");
-          const inspectorStaffId = record
-            ? (record.Attempts || []).find(a => Number(a.AttemptNo) === 1)?.InspectorStaffID
-            : selectedInspector.StaffID;
-          if (!inspectorStaffId) {
-            throw new Error("รายการเดิมยังไม่มีรหัสเจ้าหน้าที่ที่ยืนยันแล้ว กรุณาให้ Admin ตรวจสอบก่อนตรวจซ้ำ");
+          const inspectorStaffId = record ? undefined : selectedInspector.StaffID;
+          if (record && !inspectionOwnerName(record)) {
+            throw new Error("รายการเดิมไม่มีชื่อผู้ตรวจครั้งแรก กรุณาให้ Admin ตรวจสอบ");
           }
           const ids = getVehicleIds();
           const payload = {
@@ -1577,6 +1601,8 @@
             notes:$("attemptNotes").value,
             vehicleIds:ids,
             inspectorStaffId,
+            inspectorManualName:selectedInspector?.ManualName,
+            inspectorManualGroup:selectedInspector?.ManualGroup,
             ...(record
               ? {
                   recordId:record.RecordID,
@@ -1632,6 +1658,7 @@
           </div>
         </form>
       `);
+      bindStaffSelect("receiverStaffId");
       const getEmployee = bindQR("return","returnForm");
       $("cancelReturn").onclick = () => closeModal();
       let submitted = false;
@@ -1647,6 +1674,8 @@
             detailId:id,
             returnedBy,
             receiverStaffId:receiver.StaffID,
+            receiverManualName:receiver.ManualName,
+            receiverManualGroup:receiver.ManualGroup,
             notes:$("returnNotes").value
           });
           closeModal();
