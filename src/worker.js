@@ -9,7 +9,7 @@
  *   key_returns.receiver_name
  *
  * Run 01_staff_migration.sql for staff_master, user_staff_access,
- * and immutable staff_assignments snapshots before deploying.
+ * and immutable staff_assignments_v2 snapshots before deploying.
  *
  * Install the single-vehicle and required-name database triggers
  * before enabling writes with this version.
@@ -483,9 +483,20 @@ async function selectedStaff(db, user, id, label) {
   }
   return staff;
 }
+async function staffIdentity(db, user, id, manualName, manualGroup, label) {
+  if (id === "__manual__") {
+    const name = text(manualName, label, 200);
+    const group = text(manualGroup, "กลุ่มเจ้าหน้าที่", 20);
+    if (!canSelectStaffGroup(user, group) || !["Store", "TRW/TRD"].includes(group)) {
+      throw new AppError("การกรอกชื่อ Manual ต้องระบุกลุ่มที่บัญชีมีสิทธิ์", 403);
+    }
+    return {staff_id:null, staff_name:name, staff_group:group, source:"Manual"};
+  }
+  return {...await selectedStaff(db, user, id, label), source:"Roster"};
+}
 async function inspectionStaff(db, user, inspectionId) {
   const staff = await db.prepare(
-    "SELECT staff_id, staff_name, staff_group FROM staff_assignments WHERE entity_type='inspection' AND entity_id=?"
+    "SELECT staff_id, staff_name, staff_group, source FROM staff_assignments_v2 WHERE entity_type='inspection' AND entity_id=?"
   ).bind(inspectionId).first();
   if (!staff) throw new AppError("รายการเดิมยังไม่มีรหัสเจ้าหน้าที่ที่ยืนยันแล้ว กรุณาให้ Admin ตรวจสอบ ไม่เติมชื่อย้อนหลังอัตโนมัติ", 409);
   if (!canSelectStaffGroup(user, staff.staff_group)) {
@@ -496,8 +507,8 @@ async function inspectionStaff(db, user, inspectionId) {
 }
 function staffAssignment(db, type, id, staff) {
   return statement(db,
-    "INSERT INTO staff_assignments (entity_type,entity_id,staff_id,staff_name,staff_group) VALUES (?,?,?,?,?)",
-    type,id,staff.staff_id,staff.staff_name,staff.staff_group);
+    "INSERT INTO staff_assignments_v2 (entity_type,entity_id,staff_id,staff_name,staff_group,source) VALUES (?,?,?,?,?,?)",
+    type,id,staff.staff_id,staff.staff_name,staff.staff_group,staff.source);
 }
 
 async function bootstrap(db, user) {
@@ -592,7 +603,7 @@ async function mainHistory(db, data) {
        h.plate_snapshot AS Plate,
        h.vehicle_name_snapshot AS VehicleName,
        h.handed_over_at AS BorrowedAt,
-       COALESCE((SELECT staff_name FROM staff_assignments sa
+       COALESCE((SELECT staff_name FROM staff_assignments_v2 sa
          WHERE sa.entity_type='handover' AND sa.entity_id=h.handover_id), hu.display_name) AS HandoverByName,
        kr.returned_at AS ReturnedAt,
        kr.receiver_name AS ReceivedByName,
@@ -631,7 +642,8 @@ async function mainHistory(db, data) {
          a.tested_at AS TestedAt,
          a.notes AS Notes,
          a.inspector_name AS InspectorName,
-         (SELECT staff_id FROM staff_assignments sa WHERE sa.entity_type='inspection' AND sa.entity_id=a.inspection_id) AS InspectorStaffID,
+         (SELECT staff_id FROM staff_assignments_v2 sa WHERE sa.entity_type='inspection' AND sa.entity_id=a.inspection_id) AS InspectorStaffID,
+         (SELECT source FROM staff_assignments_v2 sa WHERE sa.entity_type='inspection' AND sa.entity_id=a.inspection_id) AS InspectorSource,
          a.recorded_by AS RecordedBy,
          u.display_name AS RecordedByName,
          a.recorded_at AS RecordedAt,
@@ -739,7 +751,8 @@ function handoverStatements(
         vehicleId: vehicle.vehicle_id,
         plate: vehicle.plate,
         staffId: staff.staff_id,
-        staffName: staff.staff_name
+        staffName: staff.staff_name,
+        staffSource: staff.source
       }
     ));
   }
@@ -803,7 +816,7 @@ async function inspect(db, user, data, isRetest) {
 
   const staff = isRetest
     ? await inspectionStaff(db, user, inspectionId)
-    : await selectedStaff(db, user, data.inspectorStaffId, "ชื่อผู้ตรวจ/ผู้มอบกุญแจ");
+    : await staffIdentity(db, user, data.inspectorStaffId, data.inspectorManualName, data.inspectorManualGroup, "ชื่อผู้ตรวจ/ผู้มอบกุญแจ");
   if (isRetest && data.inspectorStaffId && data.inspectorStaffId !== staff.staff_id) {
     throw new AppError("ตรวจซ้ำต้องใช้ผู้ตรวจคนเดิมจากครั้งที่ 1", 409);
   }
@@ -896,7 +909,8 @@ async function inspect(db, user, data, isRetest) {
       vehicleIds: ids,
       inspectorName: input.inspectorName,
       inspectorStaffId: staff.staff_id,
-      staffGroup: staff.staff_group
+      staffGroup: staff.staff_group,
+      staffSource: staff.source
     }
   ));
 
@@ -939,7 +953,7 @@ async function returnKey(db, user, data) {
 
   const id = text(data.detailId, "Handover ID", 100);
   const person = employee(data.returnedBy);
-  const receiver = await selectedStaff(db, user, data.receiverStaffId, "ชื่อผู้รับคืน");
+  const receiver = await staffIdentity(db, user, data.receiverStaffId, data.receiverManualName, data.receiverManualGroup, "ชื่อผู้รับคืน");
   const receiverName = receiver.staff_name;
   const notes = text(data.notes, "หมายเหตุ", 2000, false);
 
@@ -998,6 +1012,7 @@ async function returnKey(db, user, data) {
           returnedByGid: person.gid,
           receiverStaffId: receiver.staff_id,
           staffGroup: receiver.staff_group,
+          staffSource: receiver.source,
           receiverName
         }
       )
