@@ -1107,7 +1107,7 @@ async function handoverKey(db, user, data) {
 async function adminData(db, user) {
   requireAdmin(user);
 
-  const [vehicles, users, audit] = await Promise.all([
+  const [vehicles, users, staff, audit] = await Promise.all([
     loadVehicles(db, false),
     all(
       db,
@@ -1115,6 +1115,13 @@ async function adminData(db, user) {
               role AS Role, active AS Active,
               COALESCE((SELECT staff_group FROM user_staff_access_v3 sa WHERE sa.user_id=users.user_id),'') AS StaffGroup
        FROM users ORDER BY username COLLATE NOCASE`
+    ),
+    all(
+      db,
+      `SELECT staff_id AS StaffID, display_name AS StaffName,
+              staff_group AS StaffGroup, active AS Active
+       FROM staff_master_v3
+       ORDER BY staff_group COLLATE NOCASE, display_name COLLATE NOCASE`
     ),
     all(
       db,
@@ -1134,6 +1141,7 @@ async function adminData(db, user) {
       Borrowed: Boolean(v.Borrowed)
     })),
     users: users.map(u => ({ ...u, Active: Boolean(u.Active) })),
+    staff: staff.map(s => ({ ...s, Active: Boolean(s.Active) })),
     audit
   };
 }
@@ -1199,6 +1207,35 @@ async function saveVehicle(db, user, data) {
       )
     ],
     { message: "บันทึกข้อมูลรถแล้ว" }
+  );
+}
+
+async function saveStaff(db, user, data) {
+  requireAdmin(user);
+  const action = "saveStaff";
+  const context = await mutationContext(db, user, action, data);
+  if (context.cached) return context.cached;
+  const id = text(data.staffId, "Staff ID", 80);
+  const name = text(data.displayName, "ชื่อเจ้าหน้าที่", 200);
+  const group = text(data.staffGroup, "กลุ่มเจ้าหน้าที่", 20);
+  if (!["Store", "TRW/TRD", "SIG", "COM", "PSY/GRS"].includes(group)) {
+    throw new AppError("กลุ่มเจ้าหน้าที่ไม่ถูกต้อง");
+  }
+  const active = data.active === true ? 1 : 0;
+  const at = timestamp();
+  return commitMutation(
+    db, user, action, context,
+    [statement(db,
+      `INSERT INTO staff_master_v3(staff_id,display_name,staff_group,active)
+       VALUES(?,?,?,?)
+       ON CONFLICT(staff_id) DO UPDATE SET
+         display_name=excluded.display_name,
+         staff_group=excluded.staff_group,
+         active=excluded.active`,
+      id, name, group, active),
+      auditStatement(db, user, action, "staff_master_v3", id,
+        { displayName:name, staffGroup:group, active:Boolean(active) })],
+    {message: active ? "บันทึกรายชื่อเจ้าหน้าที่แล้ว" : "ปิดใช้งานรายชื่อเจ้าหน้าที่แล้ว"}
   );
 }
 
@@ -1491,6 +1528,9 @@ async function dispatch(request, db, data) {
 
     case "saveUser":
       return saveUser(db, user, data);
+
+    case "saveStaff":
+      return saveStaff(db, user, data);
 
     default:
       throw new AppError("ไม่พบ API action", 404);
