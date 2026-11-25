@@ -2313,7 +2313,10 @@ ${esc(actualName(inspectionOwnerName(record)))}
       }
       resetLogin();
     };
-    $("changeBtn").onclick = () => passwordModal();
+    // ปุ่มเปลี่ยนรหัสผ่านถูกซ่อนจากแถบเมนูหลัก แต่ยังคงรองรับ forced password flow
+    if ($("changeBtn")) {
+      $("changeBtn").onclick = () => passwordModal();
+    }
     $("refreshBtn").onclick = async () => {
       try {
         await renderPage();
