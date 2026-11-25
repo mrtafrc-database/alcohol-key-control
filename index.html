@@ -597,7 +597,7 @@
       $("account").innerHTML =
         `<strong>${esc(state.user.displayName)}</strong><br>` +
         `<span class="muted">${esc(state.user.role)} • ` +
-        `${esc(state.user.username)} • ${esc(state.user.staffGroup === "All" ? "ทั้งสองกลุ่ม" : state.user.staffGroup || "ยังไม่กำหนดกลุ่ม")}</span>`;
+        `${esc(state.user.username)} • ${esc(state.user.staffGroup === "All" ? "ทุกกลุ่ม" : state.user.staffGroup || "ยังไม่กำหนดกลุ่ม")}</span>`;
       $("adminSettingsBtn").classList.toggle(
         "hidden",
         state.user.role !== "Admin"
@@ -1394,7 +1394,7 @@
     function staffSelectField(id, label) {
       const staff = state.data?.staff || [];
       const group = state.user?.staffGroup || "";
-      const allowed = ["Store","TRW/TRD"].includes(group) || (group === "All" && state.user?.role === "Admin");
+      const allowed = ["Store","TRW/TRD","SIG","COM","PSY/GRS"].includes(group) || (group === "All" && state.user?.role === "Admin");
       return `<div class="field">
         <label for="${id}">${esc(label)} *</label>
         <select id="${id}" required ${!allowed ? "disabled" : ""}>
@@ -1406,7 +1406,7 @@
           <label for="${id}ManualName">ชื่อเจ้าหน้าที่ที่ปฏิบัติงานจริง *</label>
           <input id="${id}ManualName" maxlength="200" autocomplete="off" disabled placeholder="กรอกชื่อและนามสกุล">
           ${group === "All" ? `<label for="${id}ManualGroup">กลุ่มเจ้าหน้าที่ *</label>
-            <select id="${id}ManualGroup" disabled><option value="">— เลือกกลุ่ม —</option><option value="Store">Store</option><option value="TRW/TRD">TRW/TRD</option></select>` : ""}
+            <select id="${id}ManualGroup" disabled><option value="">— เลือกกลุ่ม —</option><option value="Store">Store</option><option value="TRW/TRD">TRW/TRD</option><option value="SIG">SIG</option><option value="COM">COM</option><option value="PSY/GRS">PSY/GRS</option></select>` : ""}
           <small>บันทึกเป็น Manual ไม่เพิ่มชื่อเข้ารายชื่อกลางอัตโนมัติ</small>
         </div>
         <small>${allowed ? "เลือกจากรายชื่อ หรือเลือกอื่น ๆ เพื่อกรอกชื่อเอง" : "ให้ Admin กำหนดกลุ่มบัญชีที่ผู้ใช้ / สิทธิ์ก่อน"}</small>
@@ -1431,7 +1431,7 @@
         const name = $(id + "ManualName").value.trim();
         const group = state.user.staffGroup === "All" ? $(id + "ManualGroup").value : state.user.staffGroup;
         if (!name || name.length > 200) throw new Error("กรุณากรอกชื่อเจ้าหน้าที่ ไม่เกิน 200 ตัวอักษร");
-        if (!["Store","TRW/TRD"].includes(group)) throw new Error("กรุณาเลือกกลุ่มเจ้าหน้าที่");
+        if (!["Store","TRW/TRD","SIG","COM","PSY/GRS"].includes(group)) throw new Error("กรุณาเลือกกลุ่มเจ้าหน้าที่");
         return {StaffID:"__manual__", ManualName:name, ManualGroup:group};
       }
       const staff = (state.data?.staff || []).find(person => person.StaffID === value);
@@ -1923,7 +1923,7 @@ ${esc(actualName(inspectionOwnerName(record)))}
             esc(user.Username),
             esc(user.DisplayName),
             badge(user.Role,""),
-            esc(user.StaffGroup === "All" ? "ทั้งสองกลุ่ม" : user.StaffGroup || "ยังไม่กำหนด"),
+            esc(user.StaffGroup === "All" ? "ทุกกลุ่ม" : user.StaffGroup || "ยังไม่กำหนด"),
             user.Active ? "ใช่" : "ไม่",
             `<button class="btn secondary tiny"
               data-user="${esc(user.Username)}">แก้ไข</button>`
@@ -2072,7 +2072,10 @@ ${esc(actualName(inspectionOwnerName(record)))}
               <option value="">— ยังไม่กำหนด —</option>
               <option value="Store">Store</option>
               <option value="TRW/TRD">TRW/TRD</option>
-              <option value="All">ทั้งสองกลุ่ม — เฉพาะ Admin</option>
+              <option value="SIG">SIG</option>
+              <option value="COM">COM</option>
+              <option value="PSY/GRS">PSY/GRS</option>
+              <option value="All">ทุกกลุ่ม — เฉพาะ Admin</option>
             </select>
             <small>กรองชื่อผู้ตรวจและผู้รับคืนตามกลุ่มนี้ ไม่เกี่ยวกับแผนกของพนักงานผู้เบิกรถ</small>
           </div>
