@@ -1853,6 +1853,7 @@ ${esc(actualName(inspectionOwnerName(record)))}
           ${[
             ["vehicles","รถ"],
             ["users","ผู้ใช้ / สิทธิ์"],
+            ["staff","รายชื่อเจ้าหน้าที่"],
             ["audit","Audit Log"]
           ].map(([id,label]) => `
             <button data-tab="${id}"
@@ -1933,6 +1934,30 @@ ${esc(actualName(inspectionOwnerName(record)))}
         panel.querySelectorAll("[data-user]").forEach(button => {
           button.onclick = () => userModal(
             admin.users.find(user => user.Username === button.dataset.user)
+          );
+        });
+      } else if (state.adminTab === "staff") {
+        panel.innerHTML = `
+          <div class="toolbar" style="margin-bottom:15px">
+            <h2 style="margin:0">รายชื่อเจ้าหน้าที่ตามกลุ่ม</h2>
+            <button class="btn fixed" id="addStaff">เพิ่มรายชื่อ</button>
+          </div>
+          <p class="muted">
+            เพิ่มรายชื่อใหม่หรือปิดใช้งานคนที่ออกจากหน้าที่ได้ โดยไม่ลบประวัติเดิม
+            • รายชื่อที่ปิดใช้งานจะไม่แสดงใน dropdown ใหม่
+          </p>
+          ${table([
+            "Staff ID","ชื่อเจ้าหน้าที่","กลุ่ม","ใช้งาน","จัดการ"
+          ], admin.staff.map(person => [
+            esc(person.StaffID), esc(person.StaffName), esc(person.StaffGroup),
+            person.Active ? "ใช่" : "ไม่",
+            `<button class="btn secondary tiny" data-staff="${esc(person.StaffID)}">แก้ไข</button>`
+          ]))}
+        `;
+        $("addStaff").onclick = () => staffModal();
+        panel.querySelectorAll("[data-staff]").forEach(button => {
+          button.onclick = () => staffModal(
+            admin.staff.find(person => person.StaffID === button.dataset.staff)
           );
         });
       } else {
@@ -2029,6 +2054,68 @@ ${esc(actualName(inspectionOwnerName(record)))}
         }
       };
     }
+    function staffModal(person = {}) {
+      const rid = requestId();
+      openModal(`
+        <h2 id="modalTitle">${person.StaffID ? "แก้ไข" : "เพิ่ม"}รายชื่อเจ้าหน้าที่</h2>
+        <form id="staffForm">
+          <div class="field">
+            <label for="staffId">Staff ID *</label>
+            <input id="staffId" value="${esc(person.StaffID || "")}" required maxlength="80"
+              ${person.StaffID ? "readonly" : ""} placeholder="เช่น Z001XXXX">
+          </div>
+          <div class="field">
+            <label for="staffDisplayName">ชื่อเจ้าหน้าที่ *</label>
+            <input id="staffDisplayName" value="${esc(person.StaffName || "")}"
+              required maxlength="200">
+          </div>
+          <div class="field">
+            <label for="staffGroup">กลุ่มเจ้าหน้าที่ *</label>
+            <select id="staffGroup" required>
+              <option value="">— เลือกกลุ่ม —</option>
+              <option value="Store">Store</option>
+              <option value="TRW/TRD">TRW/TRD</option>
+              <option value="SIG">SIG</option>
+              <option value="COM">COM</option>
+              <option value="PSY/GRS">PSY/GRS</option>
+            </select>
+          </div>
+          <label class="checkbox-line field">
+            <input id="staffActive" type="checkbox" ${person.Active !== false ? "checked" : ""}>
+            เปิดใช้งานใน dropdown
+          </label>
+          <p class="muted">การปิดใช้งานจะไม่ลบ snapshot หรือประวัติเดิม</p>
+          <div class="toolbar">
+            <button class="btn" type="submit">บันทึก</button>
+            <button id="cancelStaff" type="button" class="btn secondary">ยกเลิก</button>
+          </div>
+        </form>
+      `);
+      $("staffGroup").value = person.StaffGroup || "";
+      $("cancelStaff").onclick = () => closeModal();
+      let submitted = false;
+      $("staffForm").onsubmit = async event => {
+        event.preventDefault();
+        if (submitted) return;
+        try {
+          submitted = true;
+          const output = await call("saveStaff", {
+            requestId:rid,
+            staffId:$("staffId").value,
+            displayName:$("staffDisplayName").value,
+            staffGroup:$("staffGroup").value,
+            active:$("staffActive").checked
+          });
+          closeModal();
+          toast(output.message);
+          await refreshAdmin();
+        } catch (error) {
+          submitted = false;
+          fail(error);
+        }
+      };
+    }
+
     function userModal(user = {}) {
       const rid = requestId();
       openModal(`
