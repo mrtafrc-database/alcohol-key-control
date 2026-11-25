@@ -1250,7 +1250,7 @@ async function saveUser(db, user, data) {
   const displayName = text(data.displayName, "ชื่อแสดงผล");
   const role = data.role;
   const staffGroup = text(data.staffGroup, "กลุ่มเจ้าหน้าที่", 20, false);
-  if (!["", "Store", "TRW/TRD", "All"].includes(staffGroup) || (staffGroup === "All" && role !== "Admin")) {
+  if (!["", "Store", "TRW/TRD", "SIG", "COM", "PSY/GRS", "All"].includes(staffGroup) || (staffGroup === "All" && role !== "Admin")) {
     throw new AppError("กลุ่มต้องเป็น Store, TRW/TRD, SIG, COM หรือ PSY/GRS; เฉพาะ Admin เลือกทั้งหมดได้");
   }
 
